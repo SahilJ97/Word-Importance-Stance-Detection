@@ -59,6 +59,8 @@ memory_network_template = """{{
 """
 
 if __name__ == "__main__":
+    os.chdir(os.path.dirname(__file__))
+
     # Clean directory
     for j_file in glob.glob("configs/*.jsonnet"):
         os.remove(j_file)
