@@ -6,7 +6,9 @@ LOG_FILE=$OUTPUT_DIR/train.log
 rm -rf $OUTPUT_DIR
 mkdir $OUTPUT_DIR
 
-for f in $"ls model_configs/configs/*.jsonnet"
+python src/model_configs/generate_model_configs.py
+
+for f in $"ls -d src/model_configs/configs/*.jsonnet"
 do
   f_base=$(basename $f .jsonnet)
   echo "Training $f_base" >> $LOG_FILE
