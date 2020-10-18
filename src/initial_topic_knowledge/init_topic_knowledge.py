@@ -5,6 +5,7 @@ from csv import DictReader
 import torch
 from kmeans_pytorch import kmeans
 import os
+from src import utils
 
 BERT_MODEL = "bert-base-multilingual-cased"
 EMBEDDING_TYPE, N_SLOTS, INPUT_FILE, OUTPUT_FILE = argv[1:5]
@@ -44,10 +45,11 @@ if __name__ == "__main__":
             true_tokens = tokenizer.tokenize(text)
             indexed_tokens = tokenizer.convert_tokens_to_ids(true_tokens)
             input_ids = torch.tensor(indexed_tokens).unsqueeze(0)
-            with torch.no_grad():
+            """with torch.no_grad():
                 outputs = model(input_ids)
-            last_hidden_state = outputs[0][-1].squeeze()
-            text_embedding = torch.mean(last_hidden_state, 0)
+            last_hidden_state = outputs[0][-1].squeeze()  # use utils.bert_embedding???
+            text_embedding = torch.mean(last_hidden_state, 0)"""
+            text_embedding = utils.bert_embedding(model, input_ids)  # may need to rerun clustering now...
             embeddings.append(text_embedding)
         embeddings = torch.stack(embeddings)
         torch.save(embeddings, embeddings_file)

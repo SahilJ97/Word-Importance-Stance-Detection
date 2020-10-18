@@ -6,9 +6,9 @@ LOG_FILE=$OUTPUT_DIR/train.log
 rm -rf $OUTPUT_DIR
 mkdir $OUTPUT_DIR
 
-for f in ls model_configs/configs/*.jsonnet
+for f in $"ls model_configs/configs/*.jsonnet"
 do
-  f_base=$(basename f .jsonnet)
+  f_base=$(basename $f .jsonnet)
   echo "Training $f_base" >> $LOG_FILE
   allennlp train "$f" -s training_output/"$f_base" \
   --include-package src.classifiers --include-package allennlp.models --include-package src.vast_reader -f
