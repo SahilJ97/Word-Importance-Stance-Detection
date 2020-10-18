@@ -5,7 +5,15 @@ from transformers import BertForSequenceClassification, BertModel
 from allennlp.training.metrics import CategoricalAccuracy, FBetaMeasure
 from src.utils import bert_embedding
 
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+DEVICE = torch.device("cuda:3" if torch.cuda.is_available() else "cpu")
+
+"""DEVICE = torch.device("cpu")
+max_gpu_mem = 0
+for i in range(torch.cuda.device_count()):
+    try:
+        print(torch.cuda.memory_stats(i)["reserved_bytes"])
+    except:
+        break"""
 
 
 class VastClassifier(Model, ABC):
