@@ -5,26 +5,19 @@ from transformers import BertForSequenceClassification, BertModel
 from allennlp.training.metrics import CategoricalAccuracy, FBetaMeasure
 from src.utils import bert_embedding
 
-DEVICE = torch.device("cuda:3" if torch.cuda.is_available() else "cpu")
-
-"""DEVICE = torch.device("cpu")
-max_gpu_mem = 0
-for i in range(torch.cuda.device_count()):
-    try:
-        print(torch.cuda.memory_stats(i)["reserved_bytes"])
-    except:
-        break"""
+#DEVICE = "cuda:3" if torch.cuda.is_available() else "cpu"
 
 
 class VastClassifier(Model, ABC):
     def __init__(self, vocab):
         super().__init__(vocab)
-        print("Using CUDA? ", DEVICE == "cuda")
+        #print("Using CUDA? ", "cuda" in DEVICE)
         self.num_labels = vocab.get_vocab_size("labels")
         self.metrics = {
             "accuracy": CategoricalAccuracy(),
             "f": FBetaMeasure(),
         }
+        #self.to(DEVICE)
 
     def get_metrics(self, reset=False):
         metric_vals = {}
@@ -50,10 +43,10 @@ class BaselineMBert(VastClassifier, ABC):
             pretrained_model,
             num_labels=self.num_labels,
         )
-        self.bert_classifier = self.bert_classifier.to(DEVICE)
+        #self.bert_classifier = self.bert_classifier.to(DEVICE)
 
     def forward(self, text, label):
-        inputs = text["tokens"]["token_ids"]
+        inputs = text["tokens"]["token_ids"]#.to(DEVICE)
         logits = self.bert_classifier(inputs)
         probs = torch.nn.functional.softmax(logits[0], dim=-1)
         loss = torch.nn.functional.cross_entropy(probs, label)
@@ -77,18 +70,18 @@ class MemoryNetwork(VastClassifier, ABC):
         super().__init__(vocab)
         self.embedder = BertModel.from_pretrained(
             pretrained_model,
-        ).to(DEVICE)
+        )#.to(DEVICE)
         self.num_hops = num_hops
         self.knowledge_transfer_scheme = knowledge_transfer_scheme
-        self.M = torch.load(init_topic_knowledge_file, map_location=DEVICE)
-        self.W1 = torch.rand((text_embedding_size, text_embedding_size), device=DEVICE)
-        self.W2 = torch.rand((text_embedding_size, text_embedding_size), device=DEVICE)
+        self.M = torch.load(init_topic_knowledge_file,)# map_location=DEVICE)
+        self.W1 = torch.rand((text_embedding_size, text_embedding_size),)# device=DEVICE)
+        self.W2 = torch.rand((text_embedding_size, text_embedding_size),)# device=DEVICE)
         if self.knowledge_transfer_scheme == "parallel":
             hl_size = 2*text_embedding_size
         else:
             hl_size = text_embedding_size
-        self.hidden_layer = torch.nn.Linear(hl_size, hidden_layer_size).to(DEVICE)
-        self.output_layer = torch.nn.Linear(hidden_layer_size, self.num_labels).to(DEVICE)
+        self.hidden_layer = torch.nn.Linear(hl_size, hidden_layer_size)#.to(DEVICE)
+        self.output_layer = torch.nn.Linear(hidden_layer_size, self.num_labels)#.to(DEVICE)
 
     def knowledge_transfer(self, topic_embedding, doc_embedding):
         def shared_math(h_input):
@@ -120,8 +113,8 @@ class MemoryNetwork(VastClassifier, ABC):
             return torch.cat(results)
 
     def forward(self, topic, document, label):  # also try with co-encoding, and using document in mem network
-        topic_input = torch.unsqueeze(topic["tokens"]["token_ids"], 1)
-        document_input = torch.unsqueeze(document["tokens"]["token_ids"], 1)
+        topic_input = torch.unsqueeze(topic["tokens"]["token_ids"], 1)#.to(DEVICE)
+        document_input = torch.unsqueeze(document["tokens"]["token_ids"], 1)#.to(DEVICE)
         batch_size = list(topic_input.size())[0]
 
         # Iterate through batch, generating embeddings

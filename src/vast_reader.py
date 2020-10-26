@@ -10,6 +10,8 @@ from allennlp.data.dataset_readers import DatasetReader
 from allennlp.data.fields import TextField, LabelField
 from csv import DictReader
 
+#DEVICE = "cuda:3" if torch.cuda.is_available() else "cpu"
+
 
 @DatasetReader.register("vast_reader")
 class VastReader(DatasetReader, ABC):
