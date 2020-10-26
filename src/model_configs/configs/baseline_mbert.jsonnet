@@ -19,6 +19,6 @@
         "num_epochs": 30,
         "grad_norm": 1.0,
         "patience": 10,
-        "cuda_device": 2
+        "cuda_device": 3
     }
 }
