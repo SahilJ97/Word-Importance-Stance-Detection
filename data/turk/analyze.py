@@ -15,7 +15,7 @@ if __name__ == "__main__":
     word_weights = {}
     topics = {}
     
-    with open("first_batch_results.csv", "r") as f:
+    with open("two_batch_results.csv", "r") as f:
         reader =DictReader(f)
         for row in reader:
             hit_id = row["HITId"]
