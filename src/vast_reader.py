@@ -3,6 +3,7 @@ from torch.utils.data import Dataset
 from transformers.tokenization_bert import BertTokenizer
 from csv import DictReader
 import tokenizations
+from math import log
 
 
 class VastReader(Dataset):
@@ -10,9 +11,10 @@ class VastReader(Dataset):
                  main_csv,
                  exclude_from_main=None,
                  word_importance_csv=None,
+                 token_appearances_tsv=None,
                  smoothing=None,
-                 smooth_parameter=.1,
-                 tokenizer=BertTokenizer.from_pretrained("bert-base-uncased")
+                 smooth_param=.1,
+                 tokenizer=BertTokenizer.from_pretrained("bert-base-uncased"),
     ):
         """
         :param main_csv: Path to data CSV file
@@ -24,14 +26,25 @@ class VastReader(Dataset):
         self.main_csv = main_csv
         self.exclude_from_main = exclude_from_main  #
         self.word_importance_csv = word_importance_csv
+        self.token_appearances_tsv = token_appearances_tsv
         self.inputs, self.labels = [], []
         self.load_data()
+        self.smoothing = smoothing
+        self.smooth_param = smooth_param
         self.tokenizer = tokenizer
 
+        # Count topics (for TF-IDF computations)
+        all_topics = set()
+        with open(main_csv, "r") as f:
+            reader = DictReader(f)
+            for row in reader:
+                all_topics.add(row["new_topic"])
+        self.n_topics = len(all_topics)
+
     def new_token_mapping(self, text, word_score_tuples):
-        old_tokens = [item[0] for item in word_score_tuples]
+        orig_tokens = [item[0] for item in word_score_tuples]
         new_tokens = self.tokenizer.tokenize(text)  # need to also convert to ids...
-        old2new, new2old = tokenizations.get_alignments(old_tokens, new_tokens)
+        old2new, new2old = tokenizations.get_alignments(orig_tokens, new_tokens)
         new_token_scores = []
         for i in range(len(new_tokens)):
             new_token_scores.append(
@@ -41,6 +54,22 @@ class VastReader(Dataset):
             )
         print(new_tokens, new_token_scores)
         return new_tokens, new_token_scores
+
+    def tf_idfs(self, orig_tokens, topic):
+        values = []
+        for t in orig_tokens:
+            with open(self.token_appearances_tsv, "r") as token_file:
+                for line in token_file:
+                    token, appearances = line.split("\t")
+                    if token == t:
+                        appearances = appearances.split(",")
+                        idf = log(self.n_topics / len(set(appearances)))
+                        tf = 0
+                        for top in appearances:
+                            if top == topic:
+                                tf += 1
+                        break
+                values.append(tf * idf)
 
     def smooth(self, word_score_tuples):
         # TODO: implement simple additive smoothing and TF-IDF-weighted additive smoothing
