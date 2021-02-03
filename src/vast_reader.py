@@ -1,60 +1,45 @@
-from abc import ABC
-
 import torch
-from overrides import overrides
-
-from allennlp.data import Instance
-from allennlp.data.token_indexers import PretrainedTransformerMismatchedIndexer
-from allennlp.data.tokenizers import Token
-from allennlp.data.dataset_readers import DatasetReader
-from allennlp.data.fields import TextField, LabelField
+from torch.utils.data import Dataset
+from transformers.tokenization_bert import BertTokenizer
 from csv import DictReader
+import tokenizations
 
-#DEVICE = "cuda:3" if torch.cuda.is_available() else "cpu"
+
+class VastReader:
+    def __init__(self,
+                 main_csv,
+                 exclude_from_main=None,
+                 word_importance_csv=None,
+                 smoothing=None,
+                 tokenizer=BertTokenizer.from_pretrained("bert-base-uncased")
+    ):
+        """
+        :param main_csv: Path to data CSV file
+        :param exclude_from_main: Path to file containing new_id values of datapoints that should NOT be loaded from
+        main_csv. If word_importance_csv is defined, all of its datapoints should be represented in this list
+        :param word_importance_csv: Path to CSV file for data with word importance annotations. Word importance scores
+        should be
+        """
+        self.main_csv = main_csv
+        self.exclude_from_main = exclude_from_main  #
+        self.word_importance_csv = word_importance_csv
+        self.inputs, self.labels = [], []
+        self.load_data()
+        self.tokenizer = tokenizer
+
+    def new_token_mapping(self, text, word_score_tuples):
+        old_tokens = [item[0] for item in word_score_tuples]
+        new_tokens = self.tokenizer.tokenize(text=text)
+        old2new, new2old = tokenizations.get_alignments(old_tokens, new_tokens)
+        new_token_scores = [word_score_tuples[new2old[i]][1] for i in range(len(new_tokens))]
+        print(new_tokens, new_token_scores)
+        return new_tokens, new_token_scores
+
+    def load_data(self):
+        exclude_from_main_ids = []
+        if self.exclude_from_main:
+            with open(self.exclude_from_main, "r") as f:
+                for line in f:
+                    exclude_from_main_ids.append(line.strip())
 
 
-@DatasetReader.register("vast_reader")
-class VastReader(DatasetReader, ABC):
-    def __init__(self, lazy=False, max_epoch_len=None, return_separate=False):
-        super().__init__(lazy)
-        self.token_indexers = {
-            "tokens": PretrainedTransformerMismatchedIndexer(
-                "bert-base-multilingual-cased",
-            )
-        }
-        self.max_epoch_len = max_epoch_len
-        self.return_separate = return_separate
-
-    @overrides
-    def _read(self, file_path):
-        with open(file_path, 'r') as f:
-            reader = DictReader(f)
-            counter = 0
-            for row in reader:
-                counter += 1
-                if self.max_epoch_len and counter > self.max_epoch_len:
-                    break
-                # Topic tokens
-                tokenized_topic = eval(row["topic"])
-                topic_tokens = ["[CLS]"]
-                topic_tokens.extend(tokenized_topic[0] + ["[SEP]"])
-                topic_tokens = [Token(t) for t in topic_tokens]
-
-                # Document tokens
-                tokenized_sentences = eval(row["text"])
-                document_tokens = ["[CLS]"]
-                for s in tokenized_sentences:
-                    document_tokens.extend(s + ["."])
-                document_tokens.append("[SEP]")
-                document_tokens = [Token(t) for t in document_tokens]
-
-                fields = {
-                    'label': LabelField(row["label"])
-                }
-                if self.return_separate:  # produce topic and document as separate fields
-                    fields['topic'] = TextField(topic_tokens, self.token_indexers)
-                    fields['document'] = TextField(document_tokens, self.token_indexers)
-                else:  # concatenate inputs
-                    fields['text'] = TextField(topic_tokens + document_tokens[1:], self.token_indexers)
-
-                yield Instance(fields)
