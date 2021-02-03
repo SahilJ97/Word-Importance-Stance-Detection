@@ -24,7 +24,10 @@ if __name__ == "__main__":
             topics.setdefault(hit_id, row["Input.topic"])
             selected = row["Answer.selected_words"].split(",")
             for item in selected:
-                token_number = int(item.replace("word_", ""))
+                try:
+                    token_number = int(item.replace("word_", ""))
+                except ValueError:
+                    print(item, row["HITId"])
                 word_weights[hit_id][token_number][1] += 1
 
     for hit_id in topics.keys():

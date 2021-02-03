@@ -2,9 +2,10 @@ import csv
 import random
 import spacy
 
+nlp = spacy.load("en_core_web_sm")
+
 
 def tokenize(s):
-    nlp = spacy.load("en_core_web_sm")
     doc = nlp(s)
     return " ".join([token.text for token in doc])
 
