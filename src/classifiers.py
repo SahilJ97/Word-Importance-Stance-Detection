@@ -1,38 +1,20 @@
 from abc import ABC
+
 import torch
-from allennlp.models import Model
+import torch.nn as nn
 from transformers import BertForSequenceClassification, BertModel
-from allennlp.training.metrics import CategoricalAccuracy, FBetaMeasure
 from src.utils import bert_embedding
 
-#DEVICE = "cuda:3" if torch.cuda.is_available() else "cpu"
+DEVICE = "cuda:3" if torch.cuda.is_available() else "cpu"
 
 
-class VastClassifier(Model, ABC):
-    def __init__(self, vocab):
+class VastClassifier(nn.Module, ABC):
+    def __init__(self, vocab, use_att_prior=True):
         super().__init__(vocab)
-        #print("Using CUDA? ", "cuda" in DEVICE)
         self.num_labels = vocab.get_vocab_size("labels")
-        self.metrics = {
-            "accuracy": CategoricalAccuracy(),
-            "f": FBetaMeasure(),
-        }
-        #self.to(DEVICE)
+        self.to(DEVICE)
 
-    def get_metrics(self, reset=False):
-        metric_vals = {}
-        for metric_name, metric in self.metrics.items():
-            val = metric.get_metric()
-            if isinstance(val, dict):
-                for sub_metric_name, sub_val in val.items():
-                    if isinstance(sub_val, list):
-                        for i in range(len(sub_val)):
-                            metric_vals[f"{sub_metric_name}_{i}"] = sub_val[i]
-                    else:
-                        metric_vals[sub_metric_name] = sub_val
-            else:
-                metric_vals[metric_name] = val
-        return metric_vals
+
 
 
 @Model.register('baseline_mbert')
