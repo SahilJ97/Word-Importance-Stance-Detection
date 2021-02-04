@@ -1,17 +1,24 @@
-import torch
 from torch.utils.data import Dataset
 from transformers.tokenization_bert import BertTokenizer
 from csv import DictReader
 import tokenizations
 from math import log
+from sys import stderr
+
+
+def contains_alpha(s):
+    for c in s:
+        if c.isalpha():
+            return True
+    return False
 
 
 class VastReader(Dataset):
     def __init__(self,
                  main_csv,
+                 token_appearances_tsv,
                  exclude_from_main=None,
                  word_importance_csv=None,
-                 token_appearances_tsv=None,
                  smoothing=None,
                  smooth_param=.1,
                  tokenizer=BertTokenizer.from_pretrained("bert-base-uncased"),
@@ -28,7 +35,9 @@ class VastReader(Dataset):
         self.word_importance_csv = word_importance_csv
         self.token_appearances_tsv = token_appearances_tsv
         self.inputs, self.labels = [], []
-        self.load_data()
+        if smoothing not in [None, "simple", "tf-idf"]:
+            print("Error: smoothing must be one of: ['simple', 'tf-idf']", file=stderr)
+            exit(1)
         self.smoothing = smoothing
         self.smooth_param = smooth_param
         self.tokenizer = tokenizer
@@ -41,17 +50,19 @@ class VastReader(Dataset):
                 all_topics.add(row["new_topic"])
         self.n_topics = len(all_topics)
 
-    def new_token_mapping(self, text, word_score_tuples):
-        orig_tokens = [item[0] for item in word_score_tuples]
-        new_tokens = self.tokenizer.tokenize(text)  # need to also convert to ids...
+        self.load_data()
+
+    def new_token_mapping(self, text, orig_tokens, orig_value_mapping):
+        new_tokens = self.tokenizer.tokenize(text)
         old2new, new2old = tokenizations.get_alignments(orig_tokens, new_tokens)
         new_token_scores = []
         for i in range(len(new_tokens)):
-            new_token_scores.append(
-                max(
-                    [target[1] for target in word_score_tuples[new2old[i]]]
+            if len(new2old[i]) > 0:
+                new_token_scores.append(
+                    max(
+                        [orig_value_mapping[j] for j in new2old[i]]
+                    )
                 )
-            )
         print(new_tokens, new_token_scores)
         return new_tokens, new_token_scores
 
@@ -68,12 +79,37 @@ class VastReader(Dataset):
                         for top in appearances:
                             if top == topic:
                                 tf += 1
+                        values.append(tf * idf)
                         break
-                values.append(tf * idf)
+        return values
 
-    def smooth(self, word_score_tuples):
-        # TODO: implement simple additive smoothing and TF-IDF-weighted additive smoothing
-        return word_score_tuples
+    def relevance_scores(self, orig_tokens, tf_idfs):
+        scores = list(tf_idfs)
+        for i in range(len(orig_tokens)):
+            if not contains_alpha(orig_tokens[i]):
+                scores[i] = 0
+        return scores
+
+    def smooth(self, orig_value_mapping, tf_idfs):
+        """Preserves the original token-value mapping (spacy tokens, rather than transformer tokens)"""
+        new_values = []
+        n = len(orig_value_mapping)
+        if self.smoothing == "tf-idf":
+            denom = 1
+            for tf_idf in tf_idfs:
+                denom += self.smooth_param * tf_idf
+            denom *= n
+            for v, tf_idf in zip(orig_value_mapping, tf_idfs):
+                new_values.append(
+                    (v + self.smooth_param * tf_idf * n) / denom
+                )
+        elif self.smoothing == "simple":
+            denom = n*(1 + self.smooth_param*n)
+            for v in orig_value_mapping:
+                new_values.append(
+                    (v + self.smooth_param * n) / denom
+                )
+        return new_values
 
     def load_data(self):
         exclude_from_main_ids = []
@@ -90,9 +126,9 @@ class VastReader(Dataset):
                 self.labels.append(int(row["label"]))
                 topic_tokens = self.tokenizer.tokenize("[CLS] " + row["topic"] + " [SEP]")
                 topic_seq = self.tokenizer.convert_tokens_to_ids(topic_tokens)
-                doc_tokens = self.tokenizer.tokenize(row["doc"])
+                doc_tokens = self.tokenizer.tokenize(row["post"])
                 doc_seq = self.tokenizer.convert_tokens_to_ids(doc_tokens)
-                input_dict = {"topic": topic_seq, "document": doc_seq, "weights": None}
+                input_dict = {"topic": topic_seq, "document": doc_seq}
                 self.inputs.append(input_dict)
 
         with open(self.word_importance_csv, "r") as f:
@@ -101,9 +137,22 @@ class VastReader(Dataset):
                 self.labels.append(int(row["label"]))
                 topic_tokens = self.tokenizer.tokenize("[CLS] " + row["topic"] + " [SEP]")
                 topic_seq = self.tokenizer.convert_tokens_to_ids(topic_tokens)
-                doc_tokens, weights = self.new_token_mapping(row["doc"])
+                orig_word_weight_tuples = eval(row["weights"])
+                orig_tokens = [t[0] for t in orig_word_weight_tuples]
+                tf_idfs = self.tf_idfs(orig_tokens, row["topic"])
+                orig_weight_mapping = [t[1] for t in orig_word_weight_tuples]
+                if self.smoothing:
+                    orig_weight_mapping = self.smooth(orig_weight_mapping, tf_idfs)
+                doc_tokens, weights = self.new_token_mapping(row["argument"], orig_tokens, orig_weight_mapping)
                 doc_seq = self.tokenizer.convert_tokens_to_ids(doc_tokens)
-                input_dict = {"topic": topic_seq, "document": doc_seq, "weights": weights}
+                relevance_scores = self.relevance_scores(orig_tokens, tf_idfs)
+                relevance_scores = self.new_token_mapping(row["argument"], orig_tokens, relevance_scores)
+                input_dict = {
+                    "topic": topic_seq,
+                    "document": doc_seq,
+                    "weights": weights,
+                    "relevance_scores": relevance_scores,
+                }
                 self.inputs.append(input_dict)
 
     def __getitem__(self, idx):
@@ -111,3 +160,14 @@ class VastReader(Dataset):
 
     def __len__(self):
         return len(self.labels)
+
+
+if __name__ == "__main__":
+    dataset = VastReader(
+        "../data/VAST/vast_train.csv",
+        "../data/VAST_word_importance/token_appearances.tsv",
+        exclude_from_main="../data/VAST_word_importance/special_datapoints.txt",
+        word_importance_csv="../data/VAST_word_importance/processed_annotated.csv",
+        smoothing="tf-idf",
+    )
+    print(len(dataset))
