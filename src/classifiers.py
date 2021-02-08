@@ -1,44 +1,42 @@
 from abc import ABC
-
 import torch
 import torch.nn as nn
 from transformers import BertForSequenceClassification, BertModel
-from src.utils import bert_embedding
+
 
 DEVICE = "cuda:3" if torch.cuda.is_available() else "cpu"
 
 
-class VastClassifier(nn.Module, ABC):
-    def __init__(self, vocab, use_att_prior=True):
-        super().__init__(vocab)
-        self.num_labels = vocab.get_vocab_size("labels")
+class VastClassifier(nn.Module, ABC):  # attribution usage occurs in loss function!
+    num_labels = 3
+
+    def __init__(self, explainer=None):
+        self.explainer = explainer
+        super().__init__()
         self.to(DEVICE)
 
+    def forward_with_attributions(self, inputs):
+        outputs = self(inputs)
+        expected_gradients = self.explainer.shap_values(self, inputs)
+        return outputs, expected_gradients
 
 
-
-@Model.register('baseline_mbert')
-class BaselineMBert(VastClassifier, ABC):
-    def __init__(self, vocab, pretrained_model="bert-base-multilingual-cased"):
+class BaselineBert(VastClassifier, ABC):
+    def __init__(self, vocab, pretrained_model="bert-base-uncased"):
         super().__init__(vocab)
         self.bert_classifier = BertForSequenceClassification.from_pretrained(
             pretrained_model,
             num_labels=self.num_labels,
         )
-        #self.bert_classifier = self.bert_classifier.to(DEVICE)
+        self.bert_classifier = self.bert_classifier.to(DEVICE)
 
-    def forward(self, text, label):
-        inputs = text["tokens"]["token_ids"]#.to(DEVICE)
-        logits = self.bert_classifier(inputs)
+    def forward(self, inputs):
+        logits = self.bert_classifier(inputs).logits
         probs = torch.nn.functional.softmax(logits[0], dim=-1)
-        loss = torch.nn.functional.cross_entropy(probs, label)
-        for metric in self.metrics.values():
-            metric(probs, label)
-        return {'loss': loss, 'probs': probs}
+        return probs
 
 
-@Model.register('memory_network')
-class MemoryNetwork(VastClassifier, ABC):
+"""class MemoryNetwork(VastClassifier, ABC):
     def __init__(
             self,
             vocab,
@@ -128,4 +126,4 @@ class MemoryNetwork(VastClassifier, ABC):
         loss = torch.nn.functional.cross_entropy(probs, label)
         for metric in self.metrics.values():
             metric(probs, label)
-        return {'loss': loss, 'probs': probs}
+        return {'loss': loss, 'probs': probs}"""
