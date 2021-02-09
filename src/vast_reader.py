@@ -16,7 +16,7 @@ def contains_alpha(s):
 class VastReader(Dataset):
     def __init__(self,
                  main_csv,
-                 token_appearances_tsv,
+                 token_appearances_tsv=None,
                  exclude_from_main=None,
                  word_importance_csv=None,
                  smoothing=None,
@@ -142,7 +142,12 @@ class VastReader(Dataset):
                 self.labels.append(int(row["label"]))
                 input_tokens = self.tokenizer.tokenize("[CLS] " + row["new_topic"] + " [SEP]" + row["post"])
                 input_seq = self.tokenizer.convert_tokens_to_ids(input_tokens)
-                input_dict = {"input_seq": input_seq}
+                input_dict = {
+                    "input_seq": input_seq,
+                    "weights": None,
+                    "relevance_scores": None,
+                    "document_offset": None
+                }
                 self.inputs.append(input_dict)
 
         with open(self.word_importance_csv, "r") as f:

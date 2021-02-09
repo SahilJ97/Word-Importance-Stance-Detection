@@ -4,31 +4,24 @@ import torch.nn as nn
 from transformers import BertForSequenceClassification, BertModel
 
 
-DEVICE = "cuda:3" if torch.cuda.is_available() else "cpu"
-
-
 class VastClassifier(nn.Module, ABC):  # attribution usage occurs in loss function!
     num_labels = 3
 
-    def __init__(self, explainer=None):
-        self.explainer = explainer
+    def __init__(self):
         super().__init__()
-        self.to(DEVICE)
-
-    def forward_with_attributions(self, inputs):
-        outputs = self(inputs)
-        expected_gradients = self.explainer.shap_values(self, inputs)
-        return outputs, expected_gradients
 
 
 class BaselineBert(VastClassifier, ABC):
-    def __init__(self, vocab, pretrained_model="bert-base-uncased"):
-        super().__init__(vocab)
+    def __init__(self, pretrained_model="bert-base-uncased"):
+        super(BaselineBert, self).__init__()
         self.bert_classifier = BertForSequenceClassification.from_pretrained(
             pretrained_model,
             num_labels=self.num_labels,
         )
-        self.bert_classifier = self.bert_classifier.to(DEVICE)
+
+    def to(self, *args, **kwargs):
+        self.bert_classifier = self.bert_classifier.to(*args, **kwargs)
+        return super().to(*args, **kwargs)
 
     def forward(self, inputs):
         logits = self.bert_classifier(inputs).logits
