@@ -4,6 +4,7 @@ from csv import DictReader
 import tokenizations
 from math import log
 from sys import stderr
+import torch
 
 
 def contains_alpha(s):
@@ -14,6 +15,8 @@ def contains_alpha(s):
 
 
 class VastReader(Dataset):
+    pad_to = 512
+
     def __init__(self,
                  main_csv,
                  token_appearances_tsv=None,
@@ -32,7 +35,11 @@ class VastReader(Dataset):
         should be
         """
         self.main_csv = main_csv
-        self.exclude_from_main = exclude_from_main  #
+        self.exclude_from_main = []
+        if exclude_from_main:
+            with open(exclude_from_main, "r") as f:
+                for line in f:
+                    self.exclude_from_main.append(line.strip())
         self.word_importance_csv = word_importance_csv
         self.token_appearances_tsv = token_appearances_tsv
         self.inputs, self.labels = [], []
@@ -43,6 +50,7 @@ class VastReader(Dataset):
         self.smooth_param = smooth_param
         self.relevance_type = relevance_type
         self.tokenizer = tokenizer
+        self.tokenizer.padding_side = "right"
 
         # Count topics (for TF-IDF computations)
         all_topics = set()
@@ -55,7 +63,6 @@ class VastReader(Dataset):
         self.load_data()
 
     def new_token_mapping(self, text, orig_tokens, orig_value_mapping):
-        print(len(orig_tokens), len(orig_value_mapping))
         new_tokens = self.tokenizer.tokenize(text)
         new2old, old2new = tokenizations.get_alignments(new_tokens, orig_tokens)
         new_token_scores = []
@@ -95,7 +102,7 @@ class VastReader(Dataset):
         if self.relevance_type == "tf-idf":
             scores = list(tf_idfs)
         elif self.relevance_type == "binary":
-            scores = [1 for i in range(orig_tokens)]
+            scores = [1 for i in range(len(orig_tokens))]
         else:
             return None
         for i in range(len(orig_tokens)):
@@ -103,37 +110,31 @@ class VastReader(Dataset):
                 scores[i] = 0
         return scores
 
-    def smooth(self, orig_value_mapping, tf_idfs):
+    def smooth(self, orig_value_mapping, tf_idfs=None):
         """Preserves the original token-value mapping (spacy tokens, rather than transformer tokens)"""
-        if len(orig_value_mapping) != len(tf_idfs):
-            print("Error: arguments must have same length")
-            exit(1)
         new_values = []
         n = len(orig_value_mapping)
         if self.smoothing == "tf-idf":
-            denom = 1
+            denom = sum(orig_value_mapping)
             for tf_idf in tf_idfs:
                 denom += self.smooth_param * tf_idf
-            denom *= n
             for v, tf_idf in zip(orig_value_mapping, tf_idfs):
                 new_values.append(
-                    (v + self.smooth_param * tf_idf * n) / denom
+                    (v + self.smooth_param * tf_idf) / denom
                 )
         elif self.smoothing == "simple":
-            denom = n*(1 + self.smooth_param*n)
+            denom = sum(orig_value_mapping) + (n * self.smooth_param)
             for v in orig_value_mapping:
                 new_values.append(
-                    (v + self.smooth_param * n) / denom
+                    (v + self.smooth_param) / denom
                 )
+        elif not self.smoothing:
+            denom = sum(orig_value_mapping)
+            for v in orig_value_mapping:
+                new_values.append(v / denom)
         return new_values
 
     def load_data(self):
-        exclude_from_main_ids = []
-        if self.exclude_from_main:
-            with open(self.exclude_from_main, "r") as f:
-                for line in f:
-                    exclude_from_main_ids.append(line.strip())
-
         with open(self.main_csv, "r") as f:
             reader = DictReader(f)
             for row in reader:
@@ -141,41 +142,62 @@ class VastReader(Dataset):
                     continue
                 self.labels.append(int(row["label"]))
                 input_tokens = self.tokenizer.tokenize("[CLS] " + row["new_topic"] + " [SEP]" + row["post"])
-                input_seq = self.tokenizer.convert_tokens_to_ids(input_tokens)
                 input_dict = {
-                    "input_seq": input_seq,
+                    "input_tokens": input_tokens,
                     "weights": None,
                     "relevance_scores": None,
                     "document_offset": None
                 }
                 self.inputs.append(input_dict)
 
-        with open(self.word_importance_csv, "r") as f:
-            reader = DictReader(f)
-            for row in reader:
-                self.labels.append(int(row["label"]))
-                topic_tokens = self.tokenizer.tokenize("[CLS] " + row["topic"] + " [SEP]")
-                orig_word_weight_tuples = eval(row["weights"])
-                orig_tokens, orig_weight_mapping = zip(*orig_word_weight_tuples)
-                tf_idfs = self.tf_idfs(orig_tokens, row["topic"])
-                print(tf_idfs[:5], orig_tokens[:5])
-                if self.smoothing:
+        try:
+            with open(self.word_importance_csv, "r") as f:
+                reader = DictReader(f)
+                for row in reader:
+                    self.labels.append(int(row["label"]))
+                    topic_tokens = self.tokenizer.tokenize("[CLS] " + row["topic"] + " [SEP]")
+                    orig_word_weight_tuples = eval(row["weights"])
+                    orig_tokens, orig_weight_mapping = zip(*orig_word_weight_tuples)
+                    if self.relevance_type == "tf-idf" or self.smoothing == "tf-idf":  # don't calculate
+                        tf_idfs = self.tf_idfs(orig_tokens, row["topic"])
+                        print(tf_idfs[:5], orig_tokens[:5])
+                    else:
+                        tf_idfs = None
+                    print(orig_tokens)
+                    print(orig_weight_mapping)  # NEED to go back and re-generate data. don't compute weights till after flipping label.
                     orig_weight_mapping = self.smooth(orig_weight_mapping, tf_idfs)
-                doc_tokens, weights = self.new_token_mapping(row["argument"], orig_tokens, orig_weight_mapping)
-                input_seq = self.tokenizer.convert_tokens_to_ids(topic_tokens + doc_tokens)
-                doc_offset = len(topic_tokens)
-                relevance_scores = self.relevance_scores(orig_tokens, tf_idfs)
-                _, relevance_scores = self.new_token_mapping(row["argument"], orig_tokens, relevance_scores)
-                input_dict = {
-                    "input_seq": input_seq,
-                    "weights": weights,
-                    "relevance_scores": relevance_scores,
-                    "document_offset": doc_offset
-                }
-                self.inputs.append(input_dict)
+                    doc_tokens, weights = self.new_token_mapping(row["argument"], orig_tokens, orig_weight_mapping)
+                    doc_offset = len(topic_tokens)
+                    relevance_scores = self.relevance_scores(orig_tokens, tf_idfs)
+                    _, relevance_scores = self.new_token_mapping(row["argument"], orig_tokens, relevance_scores)
+                    input_dict = {
+                        "input_tokens": topic_tokens + doc_tokens,
+                        "weights": weights,
+                        "relevance_scores": relevance_scores,
+                        "document_offset": doc_offset
+                    }
+                    print(doc_tokens[:10], weights[:10])
+                    self.inputs.append(input_dict)
+        except TypeError:  # Handle weird error that occurs AFTER the entire file is read
+            pass
 
     def __getitem__(self, idx):
-        return self.inputs[idx], self.labels[idx]
+        ip = self.inputs[idx]
+        if ip["weights"]:
+            use_attributions = True
+            pre_padding = [0. for _ in range(ip["document_offset"])]
+            post_padding = [0. for _ in range(self.pad_to - len(pre_padding) - len(ip["weights"]))]
+            weights = pre_padding + ip["weights"] + post_padding
+            relevance_scores = pre_padding + ip["relevance_scores"] + post_padding
+        else:
+            use_attributions = False
+            weights = [0. for _ in range(self.pad_to)]
+            relevance_scores = weights
+        input_seq = self.tokenizer.convert_tokens_to_ids(
+            ip["input_tokens"] + [self.tokenizer.pad_token for _ in range(self.pad_to - len(ip["input_tokens"]))]
+        )
+        attribution_info = (use_attributions, torch.tensor(weights), torch.tensor(relevance_scores))
+        return torch.tensor(input_seq), self.labels[idx], attribution_info
 
     def __len__(self):
         return len(self.labels)
