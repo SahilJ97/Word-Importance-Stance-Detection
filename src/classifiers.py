@@ -20,7 +20,7 @@ class BaselineBert(VastClassifier, ABC):
         )
 
     def to(self, *args, **kwargs):
-        self.bert_classifier = self.bert_classifier.to(*args, **kwargs)
+        self.bert_classifier = self.bert_classifier.to(*args, **kwargs)  # out of memory error!!!
         return super().to(*args, **kwargs)
 
     def forward(self, inputs):
