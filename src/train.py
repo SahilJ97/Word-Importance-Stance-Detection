@@ -31,12 +31,12 @@ def train():
             inputs, labels, attribution_info = data
             use_attributions, weights, relevance_scores = attribution_info
             inputs = inputs.to(DEVICE)
-            labels = labels.to(DEVICE)
-            labels = one_hot(labels, num_classes=3).float()
+            sparse_labels = labels.to(DEVICE)
+            labels = one_hot(sparse_labels, num_classes=3).float()
             optimizer.zero_grad()
             outputs = model(inputs)
             loss = binary_cross_entropy(outputs, labels)
-            expected_gradients = explainer.shap_values(model, inputs, sparse_labels=labels)
+            expected_gradients = explainer.shap_values(model, inputs, sparse_labels=sparse_labels)
             if use_prior:
                 for i in range(len(inputs)):
                     if use_attributions[i]:
