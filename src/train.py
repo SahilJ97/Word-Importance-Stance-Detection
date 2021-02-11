@@ -29,7 +29,7 @@ def expected_gradients(x, references):
     alphas = torch.rand(len(references), device=DEVICE)
     attributions = torch.zeros((input_length,), device=DEVICE)
     for r, alpha in zip(references, alphas):
-        keep_r_indices = torch.cat([torch.bernoulli(alpha) for _ in range(input_length)])
+        keep_r_indices = torch.stack([torch.bernoulli(alpha) for _ in range(input_length)])
         keep_x_indices = torch.ones((input_length,), dtype=torch.float, device=DEVICE) - keep_r_indices
         shifted_input = x * keep_x_indices + r * keep_r_indices
         shifted_output = model(shifted_input)
