@@ -57,6 +57,7 @@ def train():
             outputs = model(inputs)
             print(inputs.get_device())
             print(outputs.get_device())
+            print(labels.get_device())
             loss = binary_cross_entropy(outputs, labels)
             if use_prior:
                 for i in range(len(inputs)):
