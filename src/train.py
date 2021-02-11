@@ -49,6 +49,7 @@ def train():
             use_attributions, weights, relevance_scores = attribution_info
             inputs = inputs.to(DEVICE)
             inputs, reference_inputs = inputs[:batch_size], inputs[batch_size:]
+            labels = labels[:batch_size]
             labels = one_hot(labels, num_classes=3).float()
             labels.to(DEVICE)
             optimizer.zero_grad()
