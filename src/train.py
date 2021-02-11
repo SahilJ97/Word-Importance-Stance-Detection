@@ -36,13 +36,12 @@ def train():
             optimizer.zero_grad()
             outputs = model(inputs)
             loss = binary_cross_entropy(outputs, labels)
+            expected_gradients = explainer.shap_values(model, inputs)
             if use_prior:
                 for i in range(len(inputs)):
                     if use_attributions[i]:
-                        ip_seq = torch.unsqueeze(inputs[i], dim=0).long()
-                        expected_gradients = explainer.shap_values(model, ip_seq)[0]
                         weight_tensor, relevance_tensor = weights[i].to(DEVICE), relevance_scores[i].to(DEVICE)
-                        print(expected_gradients)
+                        print(expected_gradients[i])
 
             loss.backward()
             optimizer.step()
@@ -60,7 +59,7 @@ if __name__ == "__main__":
         smooth_param=smooth_param,
         relevance_type=relevance_type
     )
-    explainer = AttributionPriorExplainer(train_set, batch_size=1, k=k)  # don't use k = 1 because few examples with labels?
+    explainer = AttributionPriorExplainer(train_set, batch_size=batch_size, k=k)  # don't use k = 1 because few examples with labels?
     dev_set = VastReader("../data/VAST/vast_dev.csv")
     model = BaselineBert()
     model.to(DEVICE)
