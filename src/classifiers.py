@@ -24,6 +24,7 @@ class BaselineBert(VastClassifier, ABC):
         return super().to(*args, **kwargs)
 
     def forward(self, inputs):
+        inputs = inputs.long()
         logits = self.bert_classifier(inputs)
         probs = torch.nn.functional.softmax(logits[0], dim=-1)
         return probs
