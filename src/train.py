@@ -26,11 +26,11 @@ def expected_gradients(x, references):
     input_length = len(x)
     x = x.float()
     references = references.float()
-    alphas = torch.rand(len(references))
-    attributions = torch.zeros((input_length,))
+    alphas = torch.rand(len(references), device=DEVICE)
+    attributions = torch.zeros((input_length,), device=DEVICE)
     for r, alpha in zip(references, alphas):
         keep_r_indices = torch.cat([torch.bernoulli(alpha) for _ in range(input_length)])
-        keep_x_indices = torch.ones((input_length,), dtype=torch.float) - keep_r_indices
+        keep_x_indices = torch.ones((input_length,), dtype=torch.float, device=DEVICE) - keep_r_indices
         shifted_input = x * keep_x_indices + r * keep_r_indices
         shifted_output = model(shifted_input)
         shifted_output.backward()
@@ -47,13 +47,16 @@ def train():
         for i, data in enumerate(train_loader, 0):
             inputs, labels, attribution_info = data
             use_attributions, weights, relevance_scores = attribution_info
-            inputs = inputs.to(DEVICE)
             inputs, reference_inputs = inputs[:batch_size], inputs[batch_size:]
+            inputs = inputs.to(DEVICE)
+            reference_inputs.to(DEVICE)
             labels = labels[:batch_size]
             labels = one_hot(labels, num_classes=3).float()
             labels.to(DEVICE)
             optimizer.zero_grad()
             outputs = model(inputs)
+            print(inputs.get_device())
+            print(outputs.get_device())
             loss = binary_cross_entropy(outputs, labels)
             if use_prior:
                 for i in range(len(inputs)):
