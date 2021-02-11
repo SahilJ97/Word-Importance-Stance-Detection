@@ -22,8 +22,17 @@ k = int(k)
 use_prior = use_prior in ["true", "True", "t"]
 
 
+def expected_gradients(batch, references):
+    for reference in references:
+        batch = batch.float()
+        references = references.float()
+        alphas = torch.rand(len(references))
+        for r in references:
+            torch
+
+
 def train():
-    train_loader = DataLoader(train_set, batch_size, shuffle=True)
+    train_loader = DataLoader(train_set, batch_size + k, shuffle=True)  # k examples are used to compute attributions
     for epoch in range(NUM_EPOCHS):
         print(f"\tBeginning epoch {epoch}...")
         running_loss = 0.0
@@ -36,8 +45,8 @@ def train():
             optimizer.zero_grad()
             outputs = model(inputs)
             loss = binary_cross_entropy(outputs, labels)
-            expected_gradients = explainer.shap_values(model, inputs, sparse_labels=sparse_labels)
             if use_prior:
+                expected_gradients = explainer.shap_values(model, inputs, sparse_labels=sparse_labels)  # see change to pytorch_ops.py!
                 for i in range(len(inputs)):
                     if use_attributions[i]:
                         weight_tensor, relevance_tensor = weights[i].to(DEVICE), relevance_scores[i].to(DEVICE)
