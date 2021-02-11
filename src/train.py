@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 from torch.nn.functional import binary_cross_entropy, one_hot
 from torch.optim import Adam
 
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"  # switch to CUDA_VISIBLE_DEVICES=2 python3 train.py
+DEVICE = "cuda:3" if torch.cuda.is_available() else "cpu"  # use CUDA_VISIBLE_DEVICES=i python3 train.py?
 NUM_EPOCHS = 20
 
 # Parse arguments
@@ -57,7 +57,7 @@ def train():
             outputs = model(inputs)
             print(inputs.get_device())
             print(outputs.get_device())
-            print(labels.get_device())
+            print(labels.get_device())  # labels is on -1, other two are on 1! wtf??
             loss = binary_cross_entropy(outputs, labels)
             if use_prior:
                 for i in range(len(inputs)):
