@@ -197,7 +197,7 @@ class VastReader(Dataset):
             ip["input_tokens"] + [self.tokenizer.pad_token for _ in range(self.pad_to - len(ip["input_tokens"]))]
         )
         attribution_info = (use_attributions, torch.tensor(weights), torch.tensor(relevance_scores))
-        return torch.tensor(input_seq, dtype=torch.long), self.labels[idx], attribution_info
+        return torch.tensor(input_seq, dtype=torch.int), self.labels[idx], attribution_info
 
     def __len__(self):
         return len(self.labels)
