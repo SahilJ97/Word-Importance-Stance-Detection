@@ -39,10 +39,9 @@ def train():
             loss = binary_cross_entropy(outputs, labels)
             if use_prior:
                 for i in range(len(inputs)):
-                    if use_attributions[0]:
+                    if use_attributions[i]:
                         ip_seq = inputs[i]
-                        ip_seq = torch.unsqueeze(ip_seq, dim=0)
-                        expected_gradients = explainer.shap_values(model, ip_seq)[0]
+                        expected_gradients = explainer.shap_values(model, ip_seq)
                         print(expected_gradients)
 
             loss.backward()
