@@ -41,6 +41,7 @@ def train():
                     if use_attributions[i]:
                         ip_seq = inputs[i]
                         expected_gradients = explainer.shap_values(model, ip_seq)
+                        weight_tensor, relevance_tensor = weights[i].to(DEVICE), relevance_scores[i].to(DEVICE)
                         print(expected_gradients)
 
             loss.backward()
