@@ -39,7 +39,7 @@ def train():
             if use_prior:
                 for i in range(len(inputs)):
                     if use_attributions[i]:
-                        ip_seq = torch.unsqueeze(inputs[i])
+                        ip_seq = torch.unsqueeze(inputs[i], dim=0)
                         expected_gradients = explainer.shap_values(model, ip_seq)[0]
                         weight_tensor, relevance_tensor = weights[i].to(DEVICE), relevance_scores[i].to(DEVICE)
                         print(expected_gradients)
