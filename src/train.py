@@ -34,7 +34,6 @@ def train():
             labels = labels.to(DEVICE)
             labels = one_hot(labels, num_classes=3).float()
             optimizer.zero_grad()
-            print(model(inputs).size())
             outputs = model(inputs)
             loss = binary_cross_entropy(outputs, labels)
             if use_prior:
