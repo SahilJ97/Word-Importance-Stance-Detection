@@ -39,6 +39,7 @@ def expected_gradients(x, y, references):
         shifted_input.retain_grad()
         shifted_loss.backward()
         derivatives = shifted_input.grad
+        print(derivatives)
         attributions += (x - r) * derivatives
     return attributions / k  # return mean of sample results
 
