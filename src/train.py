@@ -33,6 +33,7 @@ def expected_gradients(x, y, references):
         keep_x_indices = torch.ones((input_length,), dtype=torch.float, device=DEVICE) - keep_r_indices
         shifted_input = x * keep_x_indices + r * keep_r_indices
         shifted_input = torch.unsqueeze(shifted_input, dim=0)
+        shifted_input.requires_grad = True
         shifted_output = model(shifted_input)[0]  # get loss and call backward on that.
         shifted_loss = binary_cross_entropy(shifted_output, torch.unsqueeze(y, dim=0))
         shifted_loss.backward()
