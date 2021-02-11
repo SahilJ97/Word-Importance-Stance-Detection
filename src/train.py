@@ -36,7 +36,7 @@ def train():
             optimizer.zero_grad()
             outputs = model(inputs)
             loss = binary_cross_entropy(outputs, labels)
-            expected_gradients = explainer.shap_values(model, inputs)
+            expected_gradients = explainer.shap_values(model, inputs, sparse_labels=labels)
             if use_prior:
                 for i in range(len(inputs)):
                     if use_attributions[i]:
