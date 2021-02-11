@@ -22,13 +22,21 @@ k = int(k)
 use_prior = use_prior in ["true", "True", "t"]
 
 
-def expected_gradients(batch, references):
-    for reference in references:
-        batch = batch.float()
-        references = references.float()
-        alphas = torch.rand(len(references))
-        for r in references:
-            torch
+def expected_gradients(x, references):
+    input_length = len(x)
+    x = x.float()
+    references = references.float()
+    alphas = torch.rand(len(references))
+    attributions = torch.zeros((input_length,))
+    for r, alpha in zip(references, alphas):
+        keep_r_indices = torch.cat([torch.bernoulli(alpha) for _ in range(input_length)])
+        keep_x_indices = torch.ones((input_length,), dtype=torch.float) - keep_r_indices
+        shifted_input = x * keep_x_indices + r * keep_r_indices
+        shifted_output = model(shifted_input)
+        shifted_output.backward()
+        derivatives = shifted_input.grad
+        attributions += (x - r) * derivatives
+    return attributions / k  # return mean of sample results
 
 
 def train():
@@ -40,16 +48,20 @@ def train():
             inputs, labels, attribution_info = data
             use_attributions, weights, relevance_scores = attribution_info
             inputs = inputs.to(DEVICE)
-            sparse_labels = labels.to(DEVICE)
-            labels = one_hot(sparse_labels, num_classes=3).float()
+            inputs, reference_inputs = inputs[:batch_size], inputs[batch_size:]
+            labels = one_hot(labels, num_classes=3).float()
+            labels.to(DEVICE)
             optimizer.zero_grad()
             outputs = model(inputs)
             loss = binary_cross_entropy(outputs, labels)
             if use_prior:
-                expected_gradients = explainer.shap_values(model, inputs, sparse_labels=sparse_labels)  # see change to pytorch_ops.py!
                 for i in range(len(inputs)):
                     if use_attributions[i]:
+                        attributions = expected_gradients(inputs, reference_inputs)
+                        attributions = torch.abs(attributions)
+                        print(attributions)
                         weight_tensor, relevance_tensor = weights[i].to(DEVICE), relevance_scores[i].to(DEVICE)
+
                         print(expected_gradients[i])
 
             loss.backward()
