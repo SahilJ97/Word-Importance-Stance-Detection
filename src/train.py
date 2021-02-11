@@ -62,7 +62,7 @@ def train():
             if use_prior:
                 for i in range(len(inputs)):
                     if use_attributions[i]:
-                        attributions = expected_gradients(inputs, reference_inputs)
+                        attributions = expected_gradients(inputs[i], reference_inputs)
                         attributions = torch.abs(attributions)
                         print(attributions)
                         weight_tensor, relevance_tensor = weights[i].to(DEVICE), relevance_scores[i].to(DEVICE)
