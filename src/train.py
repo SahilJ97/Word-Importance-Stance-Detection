@@ -32,7 +32,8 @@ def expected_gradients(x, references):
         keep_r_indices = torch.stack([torch.bernoulli(alpha) for _ in range(input_length)])
         keep_x_indices = torch.ones((input_length,), dtype=torch.float, device=DEVICE) - keep_r_indices
         shifted_input = x * keep_x_indices + r * keep_r_indices
-        shifted_output = model(shifted_input)
+        shifted_input = torch.unsqueeze(shifted_input, dim=0)
+        shifted_output = model(shifted_input)[0]
         shifted_output.backward()
         derivatives = shifted_input.grad
         attributions += (x - r) * derivatives
