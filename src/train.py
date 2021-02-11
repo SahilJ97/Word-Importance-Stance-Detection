@@ -22,7 +22,7 @@ k = int(k)
 use_prior = use_prior in ["true", "True", "t"]
 
 
-def expected_gradients(x, references):
+def expected_gradients(x, y, references):
     input_length = len(x)
     x = x.float()
     references = references.float()
@@ -33,8 +33,9 @@ def expected_gradients(x, references):
         keep_x_indices = torch.ones((input_length,), dtype=torch.float, device=DEVICE) - keep_r_indices
         shifted_input = x * keep_x_indices + r * keep_r_indices
         shifted_input = torch.unsqueeze(shifted_input, dim=0)
-        shifted_output = model(shifted_input)[0]
-        shifted_output.backward()
+        shifted_output = model(shifted_input)[0]  # get loss and call backward on that.
+        shifted_loss = binary_cross_entropy(shifted_output, torch.unsqueeze(y, dim=0))
+        shifted_loss.backward()
         derivatives = shifted_input.grad
         attributions += (x - r) * derivatives
     return attributions / k  # return mean of sample results
@@ -63,7 +64,7 @@ def train():
             if use_prior:
                 for i in range(len(inputs)):
                     if use_attributions[i]:
-                        attributions = expected_gradients(inputs[i], reference_inputs)
+                        attributions = expected_gradients(inputs[i], labels[i], reference_inputs)
                         attributions = torch.abs(attributions)
                         print(attributions)
                         weight_tensor, relevance_tensor = weights[i].to(DEVICE), relevance_scores[i].to(DEVICE)
