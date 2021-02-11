@@ -1,5 +1,5 @@
 import torch
-from attributionpriors.attributionpriors.pytorch_ops import AttributionPriorExplainer
+from path_explain import EmbeddingExplainerTF
 from sys import argv
 from src.vast_reader import VastReader
 from src.classifiers import BaselineBert
@@ -23,22 +23,33 @@ use_prior = use_prior in ["true", "True", "t"]
 
 
 def train():
-    train_loader = DataLoader(train_set, batch_size, shuffle=True)
+    train_loader = DataLoader(train_set, batch_size+k, shuffle=True)  # use k examples as baselines
     for epoch in range(NUM_EPOCHS):
         print(f"\tBeginning epoch {epoch}...")
         running_loss = 0.0
         for i, data in enumerate(train_loader, 0):
             inputs, labels, attribution_info = data
             use_attributions, weights, relevance_scores = attribution_info
+            weights = weights[:batch_size]
+            relevance_scores = relevance_scores[:batch_size]
+            weights = weights.to(DEVICE)
+            relevance_scores = relevance_scores.to(DEVICE)
             inputs = inputs.to(DEVICE)
-            sparse_labels = labels.to(DEVICE)
-            labels = one_hot(sparse_labels, num_classes=3).float()
+            inputs, ref_inputs = inputs[:batch_size], inputs[batch_size:]
+            labels = labels[:batch_size]
+            labels = one_hot(labels, num_classes=3).float()
+            labels = labels.to(DEVICE)
             optimizer.zero_grad()
             outputs = model(inputs)
             loss = binary_cross_entropy(outputs, labels)
-            expected_gradients = explainer.shap_values(model, inputs, sparse_labels=sparse_labels)
+            attributions = explainer.attributions(inputs=inputs,
+                                                  baseline=ref_inputs,
+                                                  batch_size=batch_size,
+                                                  num_samples=256,  # number of steps in Riemann approximation?
+                                                  use_expectation=False,  # probs can't use True (EG)
+                                                  output_indices=1)
             if use_prior:
-                for i in range(len(inputs)):
+                for i in range(batch_size):
                     if use_attributions[i]:
                         weight_tensor, relevance_tensor = weights[i].to(DEVICE), relevance_scores[i].to(DEVICE)
                         print(expected_gradients[i])
@@ -59,9 +70,9 @@ if __name__ == "__main__":
         smooth_param=smooth_param,
         relevance_type=relevance_type
     )
-    explainer = AttributionPriorExplainer(train_set, batch_size=batch_size, k=k)  # don't use k = 1 because few examples with labels? SWITCH TO PATH-EXPLAIN!!!
     dev_set = VastReader("../data/VAST/vast_dev.csv")
     model = BaselineBert()
     model.to(DEVICE)
+    explainer = EmbeddingExplainerTF(model)
     optimizer = Adam(model.parameters(), lr=1e-4)
     train()
