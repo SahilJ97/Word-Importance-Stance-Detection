@@ -47,15 +47,9 @@ def expected_gradients(x, y, references):
             inputs=first_hidden_state,
             grad_outputs=torch.ones_like(shifted_loss).to(DEVICE),
             create_graph=True  # needed to differentiate prior loss term
-        )
-        print(len(derivatives))
-        derivatives = derivatives[0]
-        print(derivatives)
+        )[0]
         derivative_norms = torch.norm(derivatives, dim=-1)
         derivative_norms = torch.squeeze(derivative_norms, dim=0)
-        print(derivative_norms)
-        print(x-r)
-        print((x - r) * derivative_norms)
         derivative_norms += (x - r) * derivative_norms
     return derivative_norms / k  # return mean of sample results
 
@@ -82,8 +76,11 @@ def train():
                     if use_attributions[i]:
                         attributions = expected_gradients(inputs[i], labels[i], reference_inputs)
                         attributions = torch.abs(attributions)
-                        print(attributions)
+                        print(attributions[:20])
+                        scores = attributions / torch.sum(attributions, dim=-1)
                         weight_tensor, relevance_tensor = weights[i].to(DEVICE), relevance_scores[i].to(DEVICE)
+                        prior_loss = sum((weight_tensor - scores)**2 * relevance_tensor) / sum(relevance_tensor)
+                        loss += prior_loss
 
             loss.backward()
             optimizer.step()
