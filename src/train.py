@@ -42,6 +42,8 @@ def expected_gradients(x, y, references):
         #derivatives = shifted_input.grad
         derivatives = torch.autograd.grad(shifted_loss, shifted_input, allow_unused=True)
         print(derivatives)
+        print(x-r)
+        print((x - r) * derivatives)
         attributions += (x - r) * derivatives
     return attributions / k  # return mean of sample results
 
