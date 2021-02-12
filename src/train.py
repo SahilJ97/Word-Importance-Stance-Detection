@@ -50,8 +50,8 @@ def expected_gradients(x, y, references):
         )[0]
         derivative_norms = torch.norm(derivatives, dim=-1)
         derivative_norms = torch.squeeze(derivative_norms, dim=0)
-        derivative_norms += (x - r) * derivative_norms
-    return derivative_norms / k  # return mean of sample results
+        attributions = (x - r) * derivative_norms
+    return attributions / k  # return mean of sample results
 
 
 def train():
@@ -80,7 +80,7 @@ def train():
                         scores = attributions / torch.sum(attributions, dim=-1)
                         weight_tensor, relevance_tensor = weights[i].to(DEVICE), relevance_scores[i].to(DEVICE)
                         prior_loss = sum((weight_tensor - scores)**2 * relevance_tensor) / sum(relevance_tensor)
-                        loss += prior_loss
+                        loss = loss + prior_loss
 
             loss.backward()
             optimizer.step()
