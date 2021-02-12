@@ -36,7 +36,7 @@ def expected_gradients(x, y, references):
         shifted_input = shifted_input
         shifted_output, hidden_states = model.forward_with_hidden_states(shifted_input)
         first_hidden_state = hidden_states[0]
-        shifted_loss = binary_cross_entropy(shifted_output, torch.unsqueeze(y, dim=0))
+        shifted_loss = binary_cross_entropy(shifted_output, y)
         derivatives = torch.autograd.grad(
             outputs=shifted_loss,
             inputs=first_hidden_state,
