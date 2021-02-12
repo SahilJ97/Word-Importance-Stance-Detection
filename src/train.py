@@ -35,12 +35,18 @@ def expected_gradients(x, y, references):
         shifted_input = torch.unsqueeze(shifted_input, dim=0)
         shifted_output = model(shifted_input)
         shifted_loss = binary_cross_entropy(shifted_output, torch.unsqueeze(y, dim=0))
+        print(shifted_loss)
         shifted_input.requires_grad = True
         #shifted_input.retain_grad()
         #print(shifted_input.requires_grad)
         #shifted_loss.backward()
         #derivatives = shifted_input.grad
-        derivatives = torch.autograd.grad(shifted_loss, shifted_input, create_graph=True)  # says that some are unused
+        derivatives = torch.autograd.grad(
+            outputs=shifted_loss,
+            inputs=shifted_input,
+            grad_outputs=torch.ones_like(shifted_loss).to(DEVICE),
+            create_graph=True  # needed to differentiate prior loss term
+        )  # says that some are unused
         print(derivatives)  # still None!
         print(x-r)
         print((x - r) * derivatives)
