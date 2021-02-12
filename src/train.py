@@ -11,7 +11,7 @@ DEVICE = "cuda:3" if torch.cuda.is_available() else "cpu"  # use CUDA_VISIBLE_DE
 NUM_EPOCHS = 20
 
 # Parse arguments
-smoothing, smooth_param, relevance_type, use_prior, batch_size, learn_rate, k = argv[1:8]
+smoothing, smooth_param, relevance_type, use_prior, batch_size, learn_rate, k, lda = argv[1:9]
 if smoothing == "none":
     smoothing = None
 else:
@@ -20,6 +20,7 @@ batch_size = int(batch_size)
 learn_rate = float(learn_rate)
 k = int(k)
 use_prior = use_prior in ["true", "True", "t"]
+lda = float(lda)  # lambda (prior loss coefficient)
 
 
 def expected_gradients(x, y, references):
@@ -34,21 +35,15 @@ def expected_gradients(x, y, references):
         shifted_input = torch.unsqueeze(shifted_input, dim=0)
         shifted_input = shifted_input
         shifted_output, hidden_states = model.forward_with_hidden_states(shifted_input)
-        first_hidden_state = hidden_states[0]  # need to aggregate last dimension. AFTER getting derivative!!!
-
+        first_hidden_state = hidden_states[0]
         shifted_loss = binary_cross_entropy(shifted_output, torch.unsqueeze(y, dim=0))
-        print(shifted_loss)
-        #shifted_input.retain_grad()
-        #print(shifted_input.requires_grad)
-        #shifted_loss.backward()
-        #derivatives = shifted_input.grad
         derivatives = torch.autograd.grad(
             outputs=shifted_loss,
             inputs=first_hidden_state,
             grad_outputs=torch.ones_like(shifted_loss).to(DEVICE),
             create_graph=True  # needed to differentiate prior loss term
         )[0]
-        derivative_norms = torch.norm(derivatives, dim=-1)
+        derivative_norms = torch.norm(derivatives, dim=-1)  # aggregate token-level derivatives
         derivative_norms = torch.squeeze(derivative_norms, dim=0)
         attributions = attributions + (x - r) * derivative_norms
     return attributions / k  # return mean of sample results
@@ -58,7 +53,7 @@ def train():
     train_loader = DataLoader(train_set, batch_size + k, shuffle=True)  # k examples are used to compute attributions
     for epoch in range(NUM_EPOCHS):
         print(f"\tBeginning epoch {epoch}...")
-        running_loss = 0.0
+        running_correctness_loss, running_prior_loss = 0., 0.
         for i, data in enumerate(train_loader, 0):
             inputs, labels, attribution_info = data
             use_attributions, weights, relevance_scores = attribution_info
@@ -68,22 +63,22 @@ def train():
             labels = labels[:batch_size]
             labels = one_hot(labels, num_classes=3).float()
             labels = labels.to(DEVICE)
-            optimizer.zero_grad()
             outputs = model(inputs)
             loss = binary_cross_entropy(outputs, labels)
             if use_prior:
-                for i in range(len(inputs)):
+                for j in range(len(inputs)):
                     if use_attributions[i]:
-                        attributions = expected_gradients(inputs[i], labels[i], reference_inputs)
+                        attributions = expected_gradients(inputs[j], labels[j], reference_inputs)
                         attributions = torch.abs(attributions)
                         scores = attributions / torch.sum(attributions, dim=-1)
                         print(scores[:20])
-                        weight_tensor, relevance_tensor = weights[i].to(DEVICE), relevance_scores[i].to(DEVICE)
+                        weight_tensor, relevance_tensor = weights[j].to(DEVICE), relevance_scores[j].to(DEVICE)
                         prior_loss = sum((weight_tensor - scores)**2 * relevance_tensor) / sum(relevance_tensor)
-                        loss = loss + prior_loss
+                        loss = loss + lda*prior_loss
 
             loss.backward()
             optimizer.step()
+            optimizer.zero_grad()
             torch.cuda.empty_cache()
 
             # val: visualize attributions! track change!
