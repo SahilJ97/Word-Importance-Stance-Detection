@@ -24,10 +24,19 @@ class BaselineBert(VastClassifier, ABC):
         return super().to(*args, **kwargs)
 
     def forward(self, inputs):
-        #inputs = inputs.long()
-        logits = self.bert_classifier(inputs)
+        inputs = inputs.long()
+        logits = self.bert_classifier.forward(inputs)
         probs = torch.nn.functional.softmax(logits[0], dim=-1)
         return probs
+
+    def forward_with_hidden_states(self, inputs):
+        inputs = inputs.long()
+        outputs = self.bert_classifier.forward(inputs, output_hidden_states=True)
+        print(outputs, outputs.size())
+        logits = outputs[0]
+        hidden_states = outputs[2]
+        probs = torch.nn.functional.softmax(logits[0], dim=-1)
+        return probs, hidden_states
 
 
 """class MemoryNetwork(VastClassifier, ABC):

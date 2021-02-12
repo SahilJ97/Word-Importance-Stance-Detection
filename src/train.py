@@ -33,18 +33,19 @@ def expected_gradients(x, y, references):
         keep_x_indices = torch.ones((input_length,), dtype=torch.float, device=DEVICE) - keep_r_indices
         shifted_input = x * keep_x_indices + r * keep_r_indices
         shifted_input = torch.unsqueeze(shifted_input, dim=0)
-        shifted_input = shifted_input.long()
-        shifted_output = model(shifted_input)
+        shifted_input = shifted_input
+        shifted_output, hidden_states = model.forward_with_hidden_states(shifted_input)
+        first_hidden_state = hidden_states[0]
+        print(first_hidden_state.size())
         shifted_loss = binary_cross_entropy(shifted_output, torch.unsqueeze(y, dim=0))
         print(shifted_loss)
-        shifted_input.requires_grad = True
         #shifted_input.retain_grad()
         #print(shifted_input.requires_grad)
         #shifted_loss.backward()
         #derivatives = shifted_input.grad
         derivatives = torch.autograd.grad(
             outputs=shifted_loss,
-            inputs=shifted_input,
+            inputs=first_hidden_state,
             grad_outputs=torch.ones_like(shifted_loss).to(DEVICE),  # didn't fix issue
             create_graph=True  # needed to differentiate prior loss term
         )  # "One of the differentiated Tensors appears to not have been used in the graph"
