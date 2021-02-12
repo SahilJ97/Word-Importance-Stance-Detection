@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 from torch.nn.functional import binary_cross_entropy, one_hot
 from torch.optim import Adam
 
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"  # switch to CUDA_VISIBLE_DEVICES=2 python3 train.py
+DEVICE = "cuda:3" if torch.cuda.is_available() else "cpu"
 NUM_EPOCHS = 20
 
 # Parse arguments
@@ -46,13 +46,13 @@ def train():
                                                   baseline=ref_inputs,
                                                   batch_size=batch_size,
                                                   num_samples=256,  # number of steps in Riemann approximation?
-                                                  use_expectation=False,  # probs can't use True (EG)
+                                                  use_expectation=False,
                                                   output_indices=1)
             if use_prior:
                 for i in range(batch_size):
                     if use_attributions[i]:
                         weight_tensor, relevance_tensor = weights[i].to(DEVICE), relevance_scores[i].to(DEVICE)
-                        print(expected_gradients[i])
+                        print(attributions[i])
 
             loss.backward()
             optimizer.step()
