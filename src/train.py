@@ -48,6 +48,9 @@ def expected_gradients(x, y, references):
             grad_outputs=torch.ones_like(shifted_loss).to(DEVICE),
             create_graph=True  # needed to differentiate prior loss term
         )
+        print(len(derivatives))
+        derivatives = derivatives[0]
+        print(derivatives)
         derivative_norms = torch.norm(derivatives, dim=-1)
         derivative_norms = torch.squeeze(derivative_norms, dim=0)
         print(derivative_norms)
@@ -73,9 +76,6 @@ def train():
             labels = labels.to(DEVICE)
             optimizer.zero_grad()
             outputs = model(inputs)
-            print(inputs.get_device())
-            print(outputs.get_device())
-            print(labels.get_device())  # labels is on -1, other two are on 1! wtf??
             loss = binary_cross_entropy(outputs, labels)
             if use_prior:
                 for i in range(len(inputs)):
@@ -84,8 +84,6 @@ def train():
                         attributions = torch.abs(attributions)
                         print(attributions)
                         weight_tensor, relevance_tensor = weights[i].to(DEVICE), relevance_scores[i].to(DEVICE)
-
-                        print(expected_gradients[i])
 
             loss.backward()
             optimizer.step()
