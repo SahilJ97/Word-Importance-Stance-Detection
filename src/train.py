@@ -33,15 +33,15 @@ def expected_gradients(x, y, references):
         keep_x_indices = torch.ones((input_length,), dtype=torch.float, device=DEVICE) - keep_r_indices
         shifted_input = x * keep_x_indices + r * keep_r_indices
         shifted_input = torch.unsqueeze(shifted_input, dim=0)
-        shifted_output = model(shifted_input)  # get loss and call backward on that.
+        shifted_output = model(shifted_input)
         shifted_loss = binary_cross_entropy(shifted_output, torch.unsqueeze(y, dim=0))
         shifted_input.requires_grad = True
         #shifted_input.retain_grad()
         #print(shifted_input.requires_grad)
         #shifted_loss.backward()
         #derivatives = shifted_input.grad
-        derivatives = torch.autograd.grad(shifted_loss, shifted_input, allow_unused=True)
-        print(derivatives)
+        derivatives = torch.autograd.grad(shifted_loss, shifted_input)  # says that some are unused
+        print(derivatives)  # still None!
         print(x-r)
         print((x - r) * derivatives)
         attributions += (x - r) * derivatives
