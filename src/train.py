@@ -40,7 +40,7 @@ def expected_gradients(x, y, references):
         #print(shifted_input.requires_grad)
         #shifted_loss.backward()
         #derivatives = shifted_input.grad
-        derivatives = torch.autograd.grad(shifted_loss, shifted_input)  # says that some are unused
+        derivatives = torch.autograd.grad(shifted_loss, shifted_input, create_graph=True)  # says that some are unused
         print(derivatives)  # still None!
         print(x-r)
         print((x - r) * derivatives)
