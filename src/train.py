@@ -64,7 +64,13 @@ def train():
             labels = one_hot(labels, num_classes=3).float()
             labels = labels.to(DEVICE)
             outputs = model(inputs)
-            loss = binary_cross_entropy(outputs, labels)
+            correctness_loss = binary_cross_entropy(outputs, labels)
+            print("Correctness_loss: ", correctness_loss.item())
+            correctness_loss.backward()
+            optimizer.step()
+            optimizer.zero_grad()
+            torch.cuda.empty_cache()
+
             if use_prior:
                 for j in range(len(inputs)):
                     if use_attributions[j]:
@@ -73,13 +79,13 @@ def train():
                         scores = attributions / torch.sum(attributions, dim=-1)
                         print(scores[:20])
                         weight_tensor, relevance_tensor = weights[j].to(DEVICE), relevance_scores[j].to(DEVICE)
-                        prior_loss = sum((weight_tensor - scores)**2 * relevance_tensor) / sum(relevance_tensor)
-                        loss = loss + lda*prior_loss
-            print(loss)
-            loss.backward()
-            optimizer.step()
-            optimizer.zero_grad()
-            torch.cuda.empty_cache()
+                        prior_loss = lda * sum((weight_tensor - scores)**2 * relevance_tensor) / sum(relevance_tensor)
+                        print("Prior loss for example: ", prior_loss.item())
+                        prior_loss.backward()
+                        optimizer.step()
+                        optimizer.zero_grad()
+                        torch.cuda.empty_cache()
+
 
             # val: visualize attributions! track change!
 
