@@ -26,7 +26,7 @@ def expected_gradients(x, y, references):
     input_length = len(x)
     references = references
     alphas = torch.rand(len(references), device=DEVICE)
-    derivative_norms = torch.zeros((input_length,), device=DEVICE)
+    attributions = torch.zeros((input_length,), device=DEVICE)
     for r, alpha in zip(references, alphas):
         keep_r_indices = torch.stack([torch.bernoulli(alpha) for _ in range(input_length)])
         keep_x_indices = torch.ones((input_length,), dtype=torch.float, device=DEVICE) - keep_r_indices
@@ -50,7 +50,7 @@ def expected_gradients(x, y, references):
         )[0]
         derivative_norms = torch.norm(derivatives, dim=-1)
         derivative_norms = torch.squeeze(derivative_norms, dim=0)
-        attributions = (x - r) * derivative_norms
+        attributions = attributions + (x - r) * derivative_norms
     return attributions / k  # return mean of sample results
 
 
@@ -76,14 +76,15 @@ def train():
                     if use_attributions[i]:
                         attributions = expected_gradients(inputs[i], labels[i], reference_inputs)
                         attributions = torch.abs(attributions)
-                        print(attributions[:20])
                         scores = attributions / torch.sum(attributions, dim=-1)
+                        print(scores[:20])
                         weight_tensor, relevance_tensor = weights[i].to(DEVICE), relevance_scores[i].to(DEVICE)
                         prior_loss = sum((weight_tensor - scores)**2 * relevance_tensor) / sum(relevance_tensor)
                         loss = loss + prior_loss
 
             loss.backward()
             optimizer.step()
+            torch.cuda.empty_cache()
 
             # val: visualize attributions! track change!
 
