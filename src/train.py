@@ -10,6 +10,12 @@ from torch.optim import Adam
 DEVICE = "cuda:3" if torch.cuda.is_available() else "cpu"  # use CUDA_VISIBLE_DEVICES=i python3 train.py?
 NUM_EPOCHS = 20
 
+"""
+Two key differences from original formulation:
+1) computing attributions for 1st hidden layer
+2) Separate optimizer step for prior loss
+"""
+
 # Parse arguments
 smoothing, smooth_param, relevance_type, use_prior, batch_size, learn_rate, k, lda = argv[1:9]
 if smoothing == "none":
@@ -77,8 +83,9 @@ def train():
                         attributions = expected_gradients(inputs[j], labels[j], reference_inputs)
                         attributions = torch.abs(attributions)
                         scores = attributions / torch.sum(attributions, dim=-1)
-                        print(scores[:20])
                         weight_tensor, relevance_tensor = weights[j].to(DEVICE), relevance_scores[j].to(DEVICE)
+                        print(scores[:20])
+                        print(weight_tensor[:20])
                         prior_loss = lda * sum((weight_tensor - scores)**2 * relevance_tensor) / sum(relevance_tensor)
                         print("Prior loss for example: ", prior_loss.item())
                         prior_loss.backward()
