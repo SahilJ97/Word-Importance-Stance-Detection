@@ -44,9 +44,9 @@ def expected_gradients(x, y, references):
         derivatives = torch.autograd.grad(
             outputs=shifted_loss,
             inputs=shifted_input,
-            grad_outputs=torch.ones_like(shifted_loss).to(DEVICE),
+            grad_outputs=torch.ones_like(shifted_loss).to(DEVICE),  # didn't fix issue
             create_graph=True  # needed to differentiate prior loss term
-        )  # says that some are unused
+        )  # "One of the differentiated Tensors appears to not have been used in the graph"
         print(derivatives)  # still None!
         print(x-r)
         print((x - r) * derivatives)
