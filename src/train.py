@@ -35,10 +35,12 @@ def expected_gradients(x, y, references):
         shifted_input = torch.unsqueeze(shifted_input, dim=0)
         shifted_output = model(shifted_input)  # get loss and call backward on that.
         shifted_loss = binary_cross_entropy(shifted_output, torch.unsqueeze(y, dim=0))
-        shifted_input.requires_grad = True
-        shifted_input.retain_grad()
-        shifted_loss.backward()
-        derivatives = shifted_input.grad
+        #shifted_input.requires_grad = True
+        #shifted_input.retain_grad()
+        #print(shifted_input.requires_grad)
+        #shifted_loss.backward()
+        #derivatives = shifted_input.grad
+        derivatives = torch.autograd.grad(shifted_loss, shifted_input)
         print(derivatives)
         attributions += (x - r) * derivatives
     return attributions / k  # return mean of sample results
