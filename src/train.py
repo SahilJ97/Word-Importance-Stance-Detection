@@ -1,5 +1,5 @@
 import torch
-from path_explain.explainers.embedding_explainer_tf import EmbeddingExplainerTF
+from path_explain.explainers.path_explainer_tf import PathExplainerTF
 from sys import argv
 from src.vast_reader import VastReader
 from src.classifiers import BaselineBert
