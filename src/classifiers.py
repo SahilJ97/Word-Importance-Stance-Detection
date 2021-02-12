@@ -32,7 +32,6 @@ class BaselineBert(VastClassifier, ABC):
     def forward_with_hidden_states(self, inputs):
         inputs = inputs.long()
         outputs = self.bert_classifier.forward(inputs, output_hidden_states=True)
-        print(outputs)
         logits = outputs[0]
         hidden_states = outputs[1]
         probs = torch.nn.functional.softmax(logits[0], dim=-1)

@@ -24,10 +24,9 @@ use_prior = use_prior in ["true", "True", "t"]
 
 def expected_gradients(x, y, references):
     input_length = len(x)
-    x = x.float()
-    references = references.float()
+    references = references
     alphas = torch.rand(len(references), device=DEVICE)
-    attributions = torch.zeros((input_length,), device=DEVICE)
+    derivative_norms = torch.zeros((input_length,), device=DEVICE)
     for r, alpha in zip(references, alphas):
         keep_r_indices = torch.stack([torch.bernoulli(alpha) for _ in range(input_length)])
         keep_x_indices = torch.ones((input_length,), dtype=torch.float, device=DEVICE) - keep_r_indices
@@ -35,8 +34,8 @@ def expected_gradients(x, y, references):
         shifted_input = torch.unsqueeze(shifted_input, dim=0)
         shifted_input = shifted_input
         shifted_output, hidden_states = model.forward_with_hidden_states(shifted_input)
-        first_hidden_state = hidden_states[0]
-        print(first_hidden_state.size())
+        first_hidden_state = hidden_states[0]  # need to aggregate last dimension. AFTER getting derivative!!!
+
         shifted_loss = binary_cross_entropy(shifted_output, torch.unsqueeze(y, dim=0))
         print(shifted_loss)
         #shifted_input.retain_grad()
@@ -46,14 +45,16 @@ def expected_gradients(x, y, references):
         derivatives = torch.autograd.grad(
             outputs=shifted_loss,
             inputs=first_hidden_state,
-            grad_outputs=torch.ones_like(shifted_loss).to(DEVICE),  # didn't fix issue
+            grad_outputs=torch.ones_like(shifted_loss).to(DEVICE),
             create_graph=True  # needed to differentiate prior loss term
-        )  # "One of the differentiated Tensors appears to not have been used in the graph"
-        print(derivatives)  # still None!
+        )
+        derivative_norms = torch.norm(derivatives, dim=-1)
+        derivative_norms = torch.squeeze(derivative_norms, dim=0)
+        print(derivative_norms)
         print(x-r)
-        print((x - r) * derivatives)
-        attributions += (x - r) * derivatives
-    return attributions / k  # return mean of sample results
+        print((x - r) * derivative_norms)
+        derivative_norms += (x - r) * derivative_norms
+    return derivative_norms / k  # return mean of sample results
 
 
 def train():
