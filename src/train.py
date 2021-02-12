@@ -67,7 +67,7 @@ def train():
             loss = binary_cross_entropy(outputs, labels)
             if use_prior:
                 for j in range(len(inputs)):
-                    if use_attributions[i]:
+                    if use_attributions[j]:
                         attributions = expected_gradients(inputs[j], labels[j], reference_inputs)
                         attributions = torch.abs(attributions)
                         scores = attributions / torch.sum(attributions, dim=-1)
@@ -75,7 +75,7 @@ def train():
                         weight_tensor, relevance_tensor = weights[j].to(DEVICE), relevance_scores[j].to(DEVICE)
                         prior_loss = sum((weight_tensor - scores)**2 * relevance_tensor) / sum(relevance_tensor)
                         loss = loss + lda*prior_loss
-
+            print(loss)
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
