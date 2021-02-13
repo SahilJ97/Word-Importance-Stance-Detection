@@ -93,7 +93,7 @@ def train():
                         optimizer.zero_grad()
                         torch.cuda.empty_cache()
 
-            if i % 10 == 0:
+            if i % 10 == 0 and i != 0:
                 print(f"Epoch {epoch} iteration {i}")
                 print(f"\tRunning correctness loss: {running_correctness_loss/i}")
                 if num_prior_losses > 0:
