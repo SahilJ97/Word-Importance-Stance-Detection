@@ -40,12 +40,12 @@ def expected_gradients(x, y, references):
         shifted_input = x * keep_x_indices + r * keep_r_indices
         shifted_input = torch.unsqueeze(shifted_input, dim=0)
         shifted_input = shifted_input
-        shifted_output, hidden_states = model.forward_with_hidden_states(shifted_input)
-        first_hidden_state = hidden_states[0]
+        shifted_output, input_embeds = model.forward(shifted_input, return_input_embeddings=True)
+        print(input_embeds.size())
         shifted_loss = binary_cross_entropy(shifted_output, y)
         derivatives = torch.autograd.grad(
             outputs=shifted_loss,
-            inputs=first_hidden_state,
+            inputs=input_embeds,
             grad_outputs=torch.ones_like(shifted_loss).to(DEVICE),
             create_graph=True  # needed to differentiate prior loss term
         )[0]
@@ -60,6 +60,7 @@ def train():
     for epoch in range(NUM_EPOCHS):
         print(f"\tBeginning epoch {epoch}...")
         running_correctness_loss, running_prior_loss = 0., 0.
+        num_prior_losses = 0
         for i, data in enumerate(train_loader, 0):
             inputs, labels, attribution_info = data
             use_attributions, weights, relevance_scores = attribution_info
@@ -69,9 +70,9 @@ def train():
             labels = labels[:batch_size]
             labels = one_hot(labels, num_classes=3).float()
             labels = labels.to(DEVICE)
-            outputs = model(inputs)
+            outputs = model.forward(inputs)
             correctness_loss = binary_cross_entropy(outputs, labels)
-            print("Correctness_loss: ", correctness_loss.item())
+            running_correctness_loss += correctness_loss.item()
             correctness_loss.backward()
             optimizer.step()
             optimizer.zero_grad()
@@ -84,17 +85,19 @@ def train():
                         attributions = torch.abs(attributions)
                         scores = attributions / torch.sum(attributions, dim=-1)
                         weight_tensor, relevance_tensor = weights[j].to(DEVICE), relevance_scores[j].to(DEVICE)
-                        print(scores[:20])
-                        print(weight_tensor[:20])
                         prior_loss = lda * sum((weight_tensor - scores)**2 * relevance_tensor) / sum(relevance_tensor)
-                        print("Prior loss for example: ", prior_loss.item())
+                        running_prior_loss += prior_loss.item()
+                        num_prior_losses += 1
                         prior_loss.backward()
                         optimizer.step()
                         optimizer.zero_grad()
                         torch.cuda.empty_cache()
 
-
-            # val: visualize attributions! track change!
+            if i % 10 == 0:
+                print(f"Epoch {epoch} iteration {i}")
+                print(f"\tRunning correctness loss: {running_correctness_loss/i}")
+                if num_prior_losses > 0:
+                    print(f"\tRunning prior loss: {running_prior_loss/num_prior_losses}")
 
 
 if __name__ == "__main__":
@@ -107,7 +110,7 @@ if __name__ == "__main__":
         smooth_param=smooth_param,
         relevance_type=relevance_type
     )
-    explainer = AttributionPriorExplainer(train_set, batch_size=batch_size, k=k)  # don't use k = 1 because few examples with labels? SWITCH TO PATH-EXPLAIN!!!
+    explainer = AttributionPriorExplainer(train_set, batch_size=batch_size, k=k)
     dev_set = VastReader("../data/VAST/vast_dev.csv")
     model = BaselineBert()
     model.to(DEVICE)

@@ -20,22 +20,18 @@ class BaselineBert(VastClassifier, ABC):
         )
 
     def to(self, *args, **kwargs):
-        self.bert_classifier = self.bert_classifier.to(*args, **kwargs)  # out of memory error!!!
+        self.bert_classifier = self.bert_classifier.to(*args, **kwargs)
         return super().to(*args, **kwargs)
 
-    def forward(self, inputs):
+    def forward(self, inputs, return_input_embeddings=False):
         inputs = inputs.long()
-        logits = self.bert_classifier.forward(inputs)
+        token_type_ids = torch.zeros_like(inputs, dtype=torch.long)
+        inputs_embeds = self.bert_classifier.bert.embeddings(input_ids=inputs, token_type_ids=token_type_ids)
+        logits = self.bert_classifier.forward(inputs_embeds=inputs_embeds)
         probs = torch.nn.functional.softmax(logits[0], dim=-1)
+        if return_input_embeddings:
+            return probs, inputs_embeds
         return probs
-
-    def forward_with_hidden_states(self, inputs):
-        inputs = inputs.long()
-        outputs = self.bert_classifier.forward(inputs, output_hidden_states=True)
-        logits = outputs[0]
-        hidden_states = outputs[1]
-        probs = torch.nn.functional.softmax(logits[0], dim=-1)
-        return probs, hidden_states
 
 
 """class MemoryNetwork(VastClassifier, ABC):
