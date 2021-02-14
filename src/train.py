@@ -6,6 +6,7 @@ from src.classifiers import BaselineBert
 from torch.utils.data import DataLoader
 from torch.nn.functional import binary_cross_entropy, one_hot
 from torch.optim import Adam
+from pytorch_lightning.metrics.functional import f1
 
 DEVICE = "cuda:3" if torch.cuda.is_available() else "cpu"  # use CUDA_VISIBLE_DEVICES=i python3 train.py?
 NUM_EPOCHS = 20
@@ -55,7 +56,7 @@ def expected_gradients(x, y, references):
 def train():
     train_loader = DataLoader(train_set, batch_size + k, shuffle=True)  # k examples are used to compute attributions
     for epoch in range(NUM_EPOCHS):
-        print(f"\tBeginning epoch {epoch}...")
+        print(f"\nBeginning epoch {epoch}...")
         running_correctness_loss, running_prior_loss = 0., 0.
         num_prior_losses = 0
         for i, data in enumerate(train_loader, 0):
@@ -67,8 +68,8 @@ def train():
             labels = labels[:batch_size]
             labels = one_hot(labels, num_classes=3).float()
             labels = labels.to(DEVICE)
-            outputs = model.forward(inputs=inputs)
-            correctness_loss = binary_cross_entropy(outputs, labels)
+            dev_outputs = model.forward(inputs=inputs)
+            correctness_loss = binary_cross_entropy(dev_outputs, labels)
             running_correctness_loss += correctness_loss.item()
             correctness_loss.backward()
             optimizer.step()
@@ -96,6 +97,18 @@ def train():
                 if num_prior_losses > 0:
                     print(f"\tRunning prior loss: {running_prior_loss/num_prior_losses}")
 
+        # Perform validation
+        print("Validating...")
+        dev_inputs, dev_labels, _ = dev_set[:]
+        dev_inputs = dev_inputs.to(DEVICE)
+        dev_labels = one_hot(dev_labels, num_classes=3).float()
+        dev_labels = dev_labels.to(DEVICE)
+        dev_outputs = model.forward(inputs=dev_inputs)
+        correctness_loss = binary_cross_entropy(dev_outputs, dev_labels)
+        f = f1(dev_outputs, dev_labels, num_classes=3, average="macro", multilabel=True)
+        print(f"\tLoss: {correctness_loss.item()}")
+        print(f"\tF1: {f}")
+
 
 if __name__ == "__main__":
     train_set = VastReader(
@@ -107,8 +120,8 @@ if __name__ == "__main__":
         smooth_param=smooth_param,
         relevance_type=relevance_type
     )
-    explainer = AttributionPriorExplainer(train_set, batch_size=batch_size, k=k)
     dev_set = VastReader("../data/VAST/vast_dev.csv")
+    explainer = AttributionPriorExplainer(train_set, batch_size=batch_size, k=k)
     model = BaselineBert()
     model.to(DEVICE)
     optimizer = Adam(model.parameters(), lr=1e-4)
