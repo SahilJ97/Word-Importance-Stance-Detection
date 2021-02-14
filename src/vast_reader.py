@@ -150,6 +150,8 @@ class VastReader(Dataset):
                 }
                 self.inputs.append(input_dict)
 
+        if self.word_importance_csv is None:
+            return
         try:
             with open(self.word_importance_csv, "r") as f:
                 reader = DictReader(f)

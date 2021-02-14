@@ -7,16 +7,18 @@ from torch.utils.data import DataLoader
 from torch.nn.functional import binary_cross_entropy, one_hot
 from torch.optim import Adam
 from pytorch_lightning.metrics.functional import f1
+from src import visualize
 
 DEVICE = "cuda:3" if torch.cuda.is_available() else "cpu"  # use CUDA_VISIBLE_DEVICES=i python3 train.py?
 NUM_EPOCHS = 20
+SAMPLES_TO_VISUALIZE = 5  # NO! Just do them all!!!
 
 """
 Key difference from original formulation: separate optimizer step for prior loss.
 """
 
 # Parse arguments
-smoothing, smooth_param, relevance_type, use_prior, batch_size, learn_rate, k, lda = argv[1:9]
+smoothing, smooth_param, relevance_type, use_prior, batch_size, learn_rate, k, lda, model_name = argv[1:10]
 if smoothing == "none":
     smoothing = None
 else:
@@ -56,6 +58,13 @@ def expected_gradients(x, y, references):
 def train():
     train_loader = DataLoader(train_set, batch_size + k, shuffle=True)  # k examples are used to compute attributions
     for epoch in range(NUM_EPOCHS):
+
+        # Prepare attribution visualization file
+        html_file = f"../output/{model_name}-{epoch}.html"
+        with open(html_file, "w") as out_file:
+            out_file.write(visualize.header)
+
+        # Train
         print(f"\nBeginning epoch {epoch}...")
         running_correctness_loss, running_prior_loss = 0., 0.
         num_prior_losses = 0
@@ -79,6 +88,7 @@ def train():
             if use_prior:
                 for j in range(len(inputs)):
                     if use_attributions[j]:
+                        # Compute prior loss and back-propagate
                         attributions = expected_gradients(inputs[j], labels[j], reference_inputs)
                         attributions = torch.abs(attributions)
                         scores = attributions / torch.sum(attributions, dim=-1)
@@ -91,13 +101,25 @@ def train():
                         optimizer.zero_grad()
                         torch.cuda.empty_cache()
 
+                        # Output visualization to file
+                        tokens = train_set.tokenizer.convert_ids_to_tokens(inputs[j])
+                        attributions_html = visualize.get_words_html(tokens, (attributions*relevance_tensor).numpy())
+                        weights_html = visualize.get_words_html(tokens, (weights * relevance_tensor).numpy())
+                        with open(html_file, "a") as out_file:
+                            out_file.write(f"Model attributions:\n{attributions_html}\n")
+                            out_file.write(f"Attribution labels:\n{weights_html}\n")
+
             if i % 10 == 0 and i != 0:
                 print(f"Epoch {epoch} iteration {i}")
                 print(f"\tRunning correctness loss: {running_correctness_loss/i}")
                 if num_prior_losses > 0:
                     print(f"\tRunning prior loss: {running_prior_loss/num_prior_losses}")
 
-        # Perform validation
+        # Save
+        print("Saving model...")
+        torch.save(model, f"../output/{model_name}.pt")
+
+        # Validate
         print("Validating...")
         dev_inputs, dev_labels, _ = dev_set[:]
         dev_inputs = dev_inputs.to(DEVICE)
