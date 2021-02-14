@@ -11,9 +11,7 @@ DEVICE = "cuda:3" if torch.cuda.is_available() else "cpu"  # use CUDA_VISIBLE_DE
 NUM_EPOCHS = 20
 
 """
-Two key differences from original formulation:
-1) computing attributions for 1st hidden layer
-2) Separate optimizer step for prior loss
+Key difference from original formulation: separate optimizer step for prior loss.
 """
 
 # Parse arguments
@@ -31,16 +29,16 @@ lda = float(lda)  # lambda (prior loss coefficient)
 
 def expected_gradients(x, y, references):
     input_length = len(x)
-    references = references
+    x_embeds = model.get_inputs_embeds(torch.unsqueeze(x, dim=0))
+    references_embeds = model.get_inputs_embeds(references)
     alphas = torch.rand(len(references), device=DEVICE)
     attributions = torch.zeros((input_length,), device=DEVICE)
-    for r, alpha in zip(references, alphas):
-        keep_r_indices = torch.stack([torch.bernoulli(alpha) for _ in range(input_length)])
-        keep_x_indices = torch.ones((input_length,), dtype=torch.float, device=DEVICE) - keep_r_indices
-        shifted_input = x * keep_x_indices + r * keep_r_indices
-        shifted_input = torch.unsqueeze(shifted_input, dim=0)
-        shifted_input = shifted_input
-        shifted_output, input_embeds = model.forward(shifted_input, return_input_embeddings=True)
+    for r_embeds, alpha in zip(references_embeds, alphas):
+        r_embeds = torch.unsqueeze(r_embeds, dim=0)
+        shifted_inputs_embeds = r_embeds + alpha * (x_embeds - r_embeds)
+        shifted_inputs_embeds = torch.unsqueeze(shifted_inputs_embeds, dim=0)
+        shifted_inputs_embeds = shifted_inputs_embeds
+        shifted_output, input_embeds = model.forward(inputs_embeds=shifted_inputs_embeds, return_input_embeddings=True)
         print(input_embeds.size())
         shifted_loss = binary_cross_entropy(shifted_output, y)
         derivatives = torch.autograd.grad(
@@ -50,8 +48,10 @@ def expected_gradients(x, y, references):
             create_graph=True  # needed to differentiate prior loss term
         )[0]
         derivative_norms = torch.norm(derivatives, dim=-1)  # aggregate token-level derivatives
-        derivative_norms = torch.squeeze(derivative_norms, dim=0)
-        attributions = attributions + (x - r) * derivative_norms
+        attributions = attributions + torch.squeeze(
+            (x_embeds - r_embeds) * derivative_norms,
+            dim=0
+        )
     return attributions / k  # return mean of sample results
 
 
@@ -70,7 +70,7 @@ def train():
             labels = labels[:batch_size]
             labels = one_hot(labels, num_classes=3).float()
             labels = labels.to(DEVICE)
-            outputs = model.forward(inputs)
+            outputs = model.forward(inputs=inputs)
             correctness_loss = binary_cross_entropy(outputs, labels)
             running_correctness_loss += correctness_loss.item()
             correctness_loss.backward()

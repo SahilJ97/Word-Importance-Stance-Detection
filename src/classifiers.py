@@ -23,15 +23,21 @@ class BaselineBert(VastClassifier, ABC):
         self.bert_classifier = self.bert_classifier.to(*args, **kwargs)
         return super().to(*args, **kwargs)
 
-    def forward(self, inputs, return_input_embeddings=False):
-        inputs = inputs.long()
-        token_type_ids = torch.zeros_like(inputs, dtype=torch.long)
-        inputs_embeds = self.bert_classifier.bert.embeddings(input_ids=inputs, token_type_ids=token_type_ids)
+    def forward(self, inputs=None, inputs_embeds=None, return_input_embeddings=False):
+        if inputs is None and inputs_embeds is None:
+            raise ValueError("Either inputs or inputs_embeds must be provided")
+        if inputs is not None:
+            inputs_embeds = self.get_inputs_embeds(inputs)
         logits = self.bert_classifier.forward(inputs_embeds=inputs_embeds)
         probs = torch.nn.functional.softmax(logits[0], dim=-1)
         if return_input_embeddings:
             return probs, inputs_embeds
         return probs
+
+    def get_inputs_embeds(self, inputs):
+        inputs = inputs.long()
+        token_type_ids = torch.zeros_like(inputs, dtype=torch.long)
+        return self.bert_classifier.bert.embeddings(input_ids=inputs, token_type_ids=token_type_ids)
 
 
 """class MemoryNetwork(VastClassifier, ABC):
