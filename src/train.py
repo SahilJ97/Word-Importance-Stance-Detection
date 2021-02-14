@@ -36,20 +36,17 @@ def expected_gradients(x, y, references):
     for r_embeds, alpha in zip(references_embeds, alphas):
         r_embeds = torch.unsqueeze(r_embeds, dim=0)
         shifted_inputs_embeds = r_embeds + alpha * (x_embeds - r_embeds)
-        shifted_inputs_embeds = torch.unsqueeze(shifted_inputs_embeds, dim=0)
-        shifted_inputs_embeds = shifted_inputs_embeds
-        shifted_output, input_embeds = model.forward(inputs_embeds=shifted_inputs_embeds, return_input_embeddings=True)
-        print(input_embeds.size())
+        shifted_output = model.forward(inputs_embeds=shifted_inputs_embeds)
         shifted_loss = binary_cross_entropy(shifted_output, y)
         derivatives = torch.autograd.grad(
             outputs=shifted_loss,
-            inputs=input_embeds,
+            inputs=shifted_inputs_embeds,
             grad_outputs=torch.ones_like(shifted_loss).to(DEVICE),
             create_graph=True  # needed to differentiate prior loss term
         )[0]
         derivative_norms = torch.norm(derivatives, dim=-1)  # aggregate token-level derivatives
         attributions = attributions + torch.squeeze(
-            (x_embeds - r_embeds) * derivative_norms,
+            torch.norm(x_embeds-r_embeds, dim=-1) * derivative_norms,
             dim=0
         )
     return attributions / k  # return mean of sample results
