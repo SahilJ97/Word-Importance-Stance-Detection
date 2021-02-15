@@ -104,8 +104,14 @@ def train():
 
                         # Output visualization to file
                         tokens = train_set.tokenizer.convert_ids_to_tokens(inputs[j])
-                        attributions_html = visualize.get_words_html(tokens, (attributions*relevance_tensor).numpy())
-                        weights_html = visualize.get_words_html(tokens, (weights * relevance_tensor).numpy())
+                        attributions_html = visualize.get_words_html(
+                            tokens,
+                            (attributions*relevance_tensor).cpu().numpy()
+                        )
+                        weights_html = visualize.get_words_html(
+                            tokens,
+                            (weights * relevance_tensor).cpu().numpy()
+                        )
                         with open(html_file, "a") as out_file:
                             out_file.write(f"Model attributions:\n{attributions_html}\n")
                             out_file.write(f"Attribution labels:\n{weights_html}\n")
