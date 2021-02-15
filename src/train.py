@@ -59,7 +59,6 @@ def train():
     train_loader = DataLoader(train_set, batch_size + k, shuffle=True)  # k examples are used to compute attributions
     dev_loader = DataLoader(dev_set, batch_size, shuffle=False)
     for epoch in range(NUM_EPOCHS):
-
         # Prepare attribution visualization file
         html_file = f"../output/{model_name}-{epoch}.html"
         with open(html_file, "w") as out_file:
@@ -132,7 +131,7 @@ def train():
         print("Validating...")
         all_labels = []
         all_outputs = []
-        for i, data in enumerate(train_loader, 0):
+        for i, data in enumerate(dev_loader, 0):
             inputs, labels, _ = data
             inputs = inputs.to(DEVICE)
             labels = one_hot(labels, num_classes=3).float()
