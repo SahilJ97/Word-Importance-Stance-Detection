@@ -84,8 +84,6 @@ def train():
             correctness_loss.backward()
             optimizer.step()
             optimizer.zero_grad()
-            with torch.cuda.device(DEVICE):
-                torch.cuda.empty_cache()
 
             if use_prior:
                 for j in range(len(inputs)):
@@ -101,6 +99,8 @@ def train():
                         prior_loss.backward()
                         optimizer.step()
                         optimizer.zero_grad()
+                        with torch.cuda.device(DEVICE):
+                            torch.cuda.empty_cache()
 
                         # Output visualization to file
                         tokens = train_set.tokenizer.convert_ids_to_tokens(inputs[j])
@@ -110,7 +110,7 @@ def train():
                         )
                         weights_html = visualize.get_words_html(
                             tokens,
-                            (weights * relevance_tensor).cpu().detach().numpy()
+                            (weights*relevance_tensor).cpu().detach().numpy()
                         )
                         with open(html_file, "a") as out_file:
                             out_file.write(f"Model attributions:\n{attributions_html}\n")
