@@ -99,8 +99,8 @@ def train():
                         prior_loss.backward()
                         optimizer.step()
                         optimizer.zero_grad()
-                        with torch.cuda.device(DEVICE):
-                            torch.cuda.empty_cache()
+                        #with torch.cuda.device(DEVICE):
+                        #    torch.cuda.empty_cache()
 
                         # Output visualization to file
                         tokens = train_set.tokenizer.convert_ids_to_tokens(inputs[j])
