@@ -68,6 +68,7 @@ def train():
         running_correctness_loss, running_prior_loss = 0., 0.
         num_prior_losses = 0
         for i, data in enumerate(train_loader, 0):
+            print(i)
             inputs, labels, attribution_info = data
             use_attributions, weights, relevance_scores = attribution_info
             inputs, reference_inputs = inputs[:batch_size], inputs[batch_size:]
@@ -76,7 +77,7 @@ def train():
             labels = labels[:batch_size]
             labels = one_hot(labels, num_classes=3).float()
             labels = labels.to(DEVICE)
-            outputs = model.forward(inputs=inputs)  # suddenly OOM! is visualization taking too much mem?
+            outputs = model.forward(inputs=inputs)  # suddenly OOM! even w/o visualization...
             correctness_loss = binary_cross_entropy(outputs, labels)
             running_correctness_loss += correctness_loss.item()
             correctness_loss.backward()
@@ -100,7 +101,7 @@ def train():
                         with torch.cuda.device(DEVICE):
                             torch.cuda.empty_cache()
 
-                        """# Output visualization to file
+                        # Output visualization to file
                         tokens = train_set.tokenizer.convert_ids_to_tokens(inputs[j])
                         att_word_weights = attributions * relevance_tensor
                         gold_word_weights = weight_tensor * relevance_tensor
@@ -114,7 +115,7 @@ def train():
                         )
                         with open(html_file, "a") as out_file:
                             out_file.write(f"Model attributions:\n{attributions_html}\n")
-                            out_file.write(f"Attribution labels:\n{weights_html}\n")"""
+                            out_file.write(f"Attribution labels:\n{weights_html}\n")
 
             if i % 10 == 0 and i != 0:
                 print(f"Epoch {epoch} iteration {i}")
