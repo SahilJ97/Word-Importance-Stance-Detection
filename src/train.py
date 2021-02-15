@@ -84,7 +84,8 @@ def train():
             correctness_loss.backward()
             optimizer.step()
             optimizer.zero_grad()
-            torch.cuda.empty_cache()
+            with torch.cuda.device(DEVICE):
+                torch.cuda.empty_cache()
 
             if use_prior:
                 for j in range(len(inputs)):
