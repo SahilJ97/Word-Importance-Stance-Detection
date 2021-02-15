@@ -77,8 +77,8 @@ def train():
             labels = labels[:batch_size]
             labels = one_hot(labels, num_classes=3).float()
             labels = labels.to(DEVICE)
-            dev_outputs = model.forward(inputs=inputs)
-            correctness_loss = binary_cross_entropy(dev_outputs, labels)
+            outputs = model.forward(inputs=inputs)
+            correctness_loss = binary_cross_entropy(outputs, labels)
             running_correctness_loss += correctness_loss.item()
             correctness_loss.backward()
             optimizer.step()
