@@ -104,7 +104,7 @@ def train():
                         # Output visualization to file
                         tokens = train_set.tokenizer.convert_ids_to_tokens(inputs[j])
                         att_word_weights = attributions * relevance_tensor
-                        gold_word_weights = weights * relevance_tensor
+                        gold_word_weights = weight_tensor * relevance_tensor
                         attributions_html = visualize.get_words_html(
                             tokens,
                             att_word_weights.tolist()
