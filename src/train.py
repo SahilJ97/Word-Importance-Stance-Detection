@@ -69,6 +69,7 @@ def train():
         running_correctness_loss, running_prior_loss = 0., 0.
         num_prior_losses = 0
         for i, data in enumerate(train_loader, 0):
+            print(i)
             inputs, labels, attribution_info = data
             use_attributions, weights, relevance_scores = attribution_info
             inputs, reference_inputs = inputs[:batch_size], inputs[batch_size:]
@@ -127,7 +128,7 @@ def train():
         print("Saving model...")
         torch.save(model, f"../output/{model_name}.pt")
 
-        # Validate  FIX: do in batches of batch_size!!!
+        # Validate
         print("Validating...")
         all_labels = []
         all_outputs = []
