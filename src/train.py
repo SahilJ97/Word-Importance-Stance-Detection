@@ -69,6 +69,7 @@ def train():
         running_correctness_loss, running_prior_loss = 0., 0.
         num_prior_losses = 0
         for i, data in enumerate(train_loader, 0):
+            torch.cuda.empty_cache()
             inputs, labels, attribution_info = data
             use_attributions, weights, relevance_scores = attribution_info
             inputs, reference_inputs = inputs[:batch_size], inputs[batch_size:]
@@ -99,7 +100,6 @@ def train():
                         prior_loss.backward()
                         optimizer.step()
                         optimizer.zero_grad()
-                        torch.cuda.empty_cache()
 
                         # Output visualization to file
                         tokens = train_set.tokenizer.convert_ids_to_tokens(inputs[j])
