@@ -58,13 +58,14 @@ def get_words_html(words, weights):
     denom = max(weights)
     out_html = []
     for word, weight in zip(words, weights):
-        rounded = round(weight/denom, 1)
+        rounded = float(round(weight/denom, 1))
         opacity = weight_to_class[rounded]
         out_html.append(f"<span class=\"{opacity}\" display: inline>{word}</span>")
     return " ".join(out_html)
 
 
 if __name__=="__main__":
+    print(weight_to_class.keys())
     print(header)
     text, weights = ["hello", "world"], [.55, 1.2]
     print(get_words_html(text, weights))
