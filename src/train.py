@@ -57,6 +57,7 @@ def expected_gradients(x, y, references):
 
 def train():
     train_loader = DataLoader(train_set, batch_size + k, shuffle=True)  # k examples are used to compute attributions
+    dev_loader = DataLoader(dev_set, batch_size, shuffle=False)
     for epoch in range(NUM_EPOCHS):
 
         # Prepare attribution visualization file
@@ -127,15 +128,22 @@ def train():
         print("Saving model...")
         torch.save(model, f"../output/{model_name}.pt")
 
-        # Validate
+        # Validate  FIX: do in batches of batch_size!!!
         print("Validating...")
-        dev_inputs, dev_labels, _ = dev_set[:]
-        dev_inputs = dev_inputs.to(DEVICE)
-        dev_labels = one_hot(dev_labels, num_classes=3).float()
-        dev_labels = dev_labels.to(DEVICE)
-        dev_outputs = model.forward(inputs=dev_inputs)
-        correctness_loss = binary_cross_entropy(dev_outputs, dev_labels)
-        f = f1(dev_outputs, dev_labels, num_classes=3, average="macro", multilabel=True)
+        all_labels = []
+        all_outputs = []
+        for i, data in enumerate(train_loader, 0):
+            inputs, labels, _ = data
+            inputs = inputs.to(DEVICE)
+            labels = one_hot(labels, num_classes=3).float()
+            labels = labels.to(DEVICE)
+            all_labels.append(labels)
+            outputs = model.forward(inputs=inputs)
+            all_outputs.append(outputs)
+        all_labels = torch.cat(all_labels, dim=0)
+        all_outputs = torch.cat(all_outputs, dim=0)
+        correctness_loss = binary_cross_entropy(all_outputs, all_labels)
+        f = f1(all_outputs, all_labels, num_classes=3, average="macro", multilabel=True)
         print(f"\tLoss: {correctness_loss.item()}")
         print(f"\tF1: {f}")
 
