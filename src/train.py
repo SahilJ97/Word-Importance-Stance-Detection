@@ -107,11 +107,11 @@ def train():
                         gold_word_weights = weights * relevance_tensor
                         attributions_html = visualize.get_words_html(
                             tokens,
-                            att_word_weights.detach().cpu().numpy()
+                            att_word_weights.tolist()
                         )
                         weights_html = visualize.get_words_html(
                             tokens,
-                            gold_word_weights.detach().cpu().numpy()
+                            gold_word_weights.tolist()
                         )
                         with open(html_file, "a") as out_file:
                             out_file.write(f"Model attributions:\n{attributions_html}\n")
