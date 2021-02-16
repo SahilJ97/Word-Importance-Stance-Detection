@@ -142,6 +142,7 @@ def train():
             labels = labels.to(DEVICE)
             all_labels.append(labels)
             outputs = model.forward(inputs=inputs)  # OOM third time around!!!
+            outputs.detach()
             all_outputs.append(outputs)
         all_labels = torch.cat(all_labels, dim=0)
         all_outputs = torch.cat(all_outputs, dim=0)
