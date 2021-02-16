@@ -130,24 +130,24 @@ def train():
 
         # Validate
         print("Validating...")
-        all_labels = []
-        all_outputs = []
-        for i, data in enumerate(dev_loader, 0):
-            print(f"Dev batch {i}")
-            with torch.cuda.device(DEVICE):
-                torch.cuda.empty_cache()
-            inputs, labels, _ = data
-            inputs = inputs.to(DEVICE)
-            labels = one_hot(labels, num_classes=3).float()
-            labels = labels.to(DEVICE)
-            all_labels.append(labels)
-            outputs = model.forward(inputs=inputs)  # OOM third time around!!!
-            outputs.detach()
-            all_outputs.append(outputs)
-        all_labels = torch.cat(all_labels, dim=0)
-        all_outputs = torch.cat(all_outputs, dim=0)
-        correctness_loss = binary_cross_entropy(all_outputs, all_labels)
-        f = f1(all_outputs, all_labels, num_classes=3, average="macro", multilabel=True)
+        with torch.no_grad():
+            all_labels = []
+            all_outputs = []
+            for i, data in enumerate(dev_loader, 0):
+                print(f"Dev batch {i}")
+                with torch.cuda.device(DEVICE):
+                    torch.cuda.empty_cache()
+                inputs, labels, _ = data
+                inputs = inputs.to(DEVICE)
+                labels = one_hot(labels, num_classes=3).float()
+                labels = labels.to(DEVICE)
+                all_labels.append(labels)
+                outputs = model.forward(inputs=inputs)  # OOM third time around!!!
+                all_outputs.append(outputs)
+            all_labels = torch.cat(all_labels, dim=0)
+            all_outputs = torch.cat(all_outputs, dim=0)
+            correctness_loss = binary_cross_entropy(all_outputs, all_labels)
+            f = f1(all_outputs, all_labels, num_classes=3, average="macro", multilabel=True)
         print(f"\tLoss: {correctness_loss.item()}")
         print(f"\tF1: {f}")
 
