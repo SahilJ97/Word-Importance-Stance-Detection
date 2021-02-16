@@ -182,14 +182,14 @@ class VastReader(Dataset):
     def __getitem__(self, idx):
         ip = self.inputs[idx]
         if ip["weights"]:
-            use_attributions = True
+            has_attribution_label = True
             pre_padding = [0. for _ in range(ip["document_offset"])]
             post_padding = [0. for _ in range(max(0, self.max_len - len(pre_padding) - len(ip["weights"])))]
             weights = pre_padding + ip["weights"] + post_padding
 
             relevance_scores = pre_padding + ip["relevance_scores"] + post_padding
         else:
-            use_attributions = False
+            has_attribution_label = False
             weights = [0. for _ in range(self.max_len)]
             relevance_scores = weights
         input_seq = self.tokenizer.convert_tokens_to_ids(
@@ -197,12 +197,13 @@ class VastReader(Dataset):
         )
 
         weights = weights[:self.max_len]
-        denom = sum(weights)
-        weights = [w/denom for w in weights]  # Re-normalize weights (after potentially cropping)
+        if has_attribution_label:
+            denom = sum(weights)
+            weights = [w/denom for w in weights]  # Re-normalize weights (after potentially cropping)
         relevance_scores = relevance_scores[:self.max_len]
         input_seq = input_seq[:self.max_len]
 
-        attribution_info = (use_attributions, torch.tensor(weights), torch.tensor(relevance_scores))
+        attribution_info = (has_attribution_label, torch.tensor(weights), torch.tensor(relevance_scores))
         return torch.tensor(input_seq), self.labels[idx], attribution_info
 
     def __len__(self):
