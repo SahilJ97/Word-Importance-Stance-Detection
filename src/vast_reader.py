@@ -162,11 +162,8 @@ class VastReader(Dataset):
                     orig_tokens, orig_weight_mapping = zip(*orig_word_weight_tuples)
                     if self.relevance_type == "tf-idf" or self.smoothing == "tf-idf":  # don't calculate
                         tf_idfs = self.tf_idfs(orig_tokens, row["topic"])
-                        print(tf_idfs[:5], orig_tokens[:5])
                     else:
                         tf_idfs = None
-                    print(orig_tokens)
-                    print(orig_weight_mapping)  # NEED to go back and re-generate data. don't compute weights till after flipping label.
                     orig_weight_mapping = self.smooth(orig_weight_mapping, tf_idfs)
                     doc_tokens, weights = self.new_token_mapping(row["argument"], orig_tokens, orig_weight_mapping)
                     doc_offset = len(topic_tokens)
@@ -178,7 +175,6 @@ class VastReader(Dataset):
                         "relevance_scores": relevance_scores,
                         "document_offset": doc_offset
                     }
-                    print(doc_tokens[:10], weights[:10])
                     self.inputs.append(input_dict)
         except TypeError:  # Handle weird error that occurs AFTER the entire file is read
             pass
