@@ -122,11 +122,11 @@ def train():
                 print(f"Epoch {epoch} iteration {i}")
                 print(f"\tRunning correctness loss: {running_correctness_loss/i}")
                 if num_prior_losses > 0:
-                    print(f"\tRunning prior loss: {running_prior_loss/num_prior_losses}")"""
+                    print(f"\tRunning prior loss: {running_prior_loss/num_prior_losses}")
 
         # Save
         print("Saving model...")
-        torch.save(model, f"../output/{model_name}.pt")
+        torch.save(model, f"../output/{model_name}.pt")"""
 
         # Validate
         print("Validating...")
