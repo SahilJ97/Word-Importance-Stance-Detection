@@ -66,9 +66,10 @@ def train():
     for epoch in range(NUM_EPOCHS):
 
         # Prepare attribution visualization file
-        html_file = f"../output/{model_name}-{epoch}.html"
-        with open(html_file, "w") as out_file:
-            out_file.write(visualize.header)
+        if use_prior:
+            html_file = f"../output/{model_name}-{epoch}.html"
+            with open(html_file, "w") as out_file:
+                out_file.write(visualize.header)
 
         # Train
         print(f"\nBeginning epoch {epoch}...")
@@ -77,7 +78,7 @@ def train():
         for i, data in enumerate(train_loader, 0):
             empty_cache()
             inputs, labels, attribution_info = data
-            use_attributions, weights, relevance_scores = attribution_info
+            has_att_labels, weights, relevance_scores = attribution_info
             inputs, reference_inputs = inputs[:batch_size], inputs[batch_size:]
             inputs = inputs.to(DEVICE)
             reference_inputs = reference_inputs.to(DEVICE)
@@ -93,7 +94,7 @@ def train():
 
             if use_prior:
                 for j in range(len(inputs)):
-                    if use_attributions[j]:
+                    if has_att_labels[j]:
                         empty_cache()
                         # Compute prior loss and back-propagate
                         attributions = expected_gradients(inputs[j], labels[j], reference_inputs)
@@ -155,16 +156,14 @@ def train():
             all_labels = torch.cat(all_labels, dim=0)
             all_outputs = torch.cat(all_outputs, dim=0)
             correctness_loss = binary_cross_entropy(all_outputs, all_labels)
-            zero_labels, one_labels = all_labels[:, 0], all_labels[:, 1]
-            zero_outputs, one_outputs = all_outputs[:, 0], all_outputs[:, 1]
-            _, output_indices = torch.max(outputs, dim=-1)
-            _, label_indices = torch.max(labels, dim=-1)
-            zero_f1 = f1(zero_labels, zero_outputs, num_classes=1)
-            one_f1 = f1(one_labels, one_outputs, num_classes=1)
-            print(label_indices)
-            total_f1 = f1(label_indices, output_indices, num_classes=3, average="macro")  # zero! but could just average for 0,1! (include 2?)
+            zero_labels, one_labels, two_labels = all_labels[:, 0], all_labels[:, 1], all_labels[:, 2]
+            zero_outputs, one_outputs, two_outputs = all_outputs[:, 0], all_outputs[:, 1], all_outputs[:, 2]
+            zero_f1 = f1(zero_labels, zero_outputs, num_classes=1).item()
+            one_f1 = f1(one_labels, one_outputs, num_classes=1).item()
+            two_f1 = f1(two_labels, two_outputs, num_classes=1).item()
+            total_f1 = (zero_f1 + one_f1 + two_f1) / 3
         print(f"\tLoss: {correctness_loss.item()}")
-        print(f"\tF1: {zero_f1.item(), one_f1.item(), total_f1.item()}")
+        print(f"\tF1: {zero_f1, one_f1, total_f1}")
 
 
 if __name__ == "__main__":

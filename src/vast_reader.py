@@ -15,7 +15,7 @@ def contains_alpha(s):
 
 
 class VastReader(Dataset):
-    max_len = 256
+    max_len = 212
 
     def __init__(self,
                  main_csv,
@@ -197,6 +197,8 @@ class VastReader(Dataset):
         )
 
         weights = weights[:self.max_len]
+        denom = sum(weights)
+        weights = [w/denom for w in weights]  # Re-normalize weights (after potentially cropping)
         relevance_scores = relevance_scores[:self.max_len]
         input_seq = input_seq[:self.max_len]
 
