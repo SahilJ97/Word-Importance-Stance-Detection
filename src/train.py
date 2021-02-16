@@ -113,8 +113,8 @@ def train():
                             gold_word_weights.tolist()
                         )
                         with open(html_file, "a") as out_file:
-                            out_file.write(f"Model attributions:\n{attributions_html}\n")
-                            out_file.write(f"Attribution labels:\n{weights_html}\n")
+                            out_file.write(f"<p>Model attributions:</p>\n{attributions_html}\n")
+                            out_file.write(f"<p>Attribution labels:</p>\n{weights_html}\n")
 
             if i % 10 == 0 and i != 0:
                 print(f"Epoch {epoch} iteration {i}")
