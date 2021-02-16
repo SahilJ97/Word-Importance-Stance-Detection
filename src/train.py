@@ -103,8 +103,12 @@ def train():
                         prior_loss = lda * sum((weight_tensor - scores)**2 * relevance_tensor) / sum(relevance_tensor)
                         running_prior_loss += prior_loss.item()
                         num_prior_losses += 1
-                        prior_loss.backward()
-                        optimizer.step()
+                        try:
+                            prior_loss.backward()
+                            optimizer.step()
+                        except RuntimeError as e:  # Once occurred unexpectedly during 8th epoch
+                            print("RuntimeError while backpropagating prior loss. Skipping...")
+                            continue
                         optimizer.zero_grad()
 
                         # Output visualization to file
@@ -158,7 +162,7 @@ def train():
             zero_f1 = f1(zero_labels, zero_outputs, num_classes=1)
             one_f1 = f1(one_labels, one_outputs, num_classes=1)
             print(label_indices)
-            total_f1 = f1(label_indices, output_indices, num_classes=3, average="macro")
+            total_f1 = f1(label_indices, output_indices, num_classes=3, average="macro")  # zero! but could just average for 0,1! (include 2?)
         print(f"\tLoss: {correctness_loss.item()}")
         print(f"\tF1: {zero_f1.item(), one_f1.item(), total_f1.item()}")
 
