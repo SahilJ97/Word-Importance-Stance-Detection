@@ -58,12 +58,13 @@ def train():
     train_loader = DataLoader(train_set, batch_size + k, shuffle=True)  # k examples are used to compute attributions
     dev_loader = DataLoader(dev_set, batch_size, shuffle=False)
     for epoch in range(NUM_EPOCHS):
+
         # Prepare attribution visualization file
         html_file = f"../output/{model_name}-{epoch}.html"
         with open(html_file, "w") as out_file:
             out_file.write(visualize.header)
 
-        """# Train
+        # Train
         print(f"\nBeginning epoch {epoch}...")
         running_correctness_loss, running_prior_loss = 0., 0.
         num_prior_losses = 0
@@ -118,6 +119,7 @@ def train():
                             out_file.write(f"<p>Model attributions:</p>\n{attributions_html}\n")
                             out_file.write(f"<p>Attribution labels:</p>\n{weights_html}\n")
 
+            # Print running losses every 10 batches
             if i % 10 == 0 and i != 0:
                 print(f"Epoch {epoch} iteration {i}")
                 print(f"\tRunning correctness loss: {running_correctness_loss/i}")
@@ -126,7 +128,7 @@ def train():
 
         # Save
         print("Saving model...")
-        torch.save(model, f"../output/{model_name}.pt")"""
+        torch.save(model, f"../output/{model_name}.pt")
 
         # Validate
         print("Validating...")
@@ -134,7 +136,6 @@ def train():
             all_labels = []
             all_outputs = []
             for i, data in enumerate(dev_loader, 0):
-                print(f"Dev batch {i}")
                 with torch.cuda.device(DEVICE):
                     torch.cuda.empty_cache()
                 inputs, labels, _ = data
