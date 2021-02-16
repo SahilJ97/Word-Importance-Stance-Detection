@@ -15,7 +15,7 @@ def contains_alpha(s):
 
 
 class VastReader(Dataset):
-    pad_to = 512
+    max_len = 256
 
     def __init__(self,
                  main_csv,
@@ -188,16 +188,22 @@ class VastReader(Dataset):
         if ip["weights"]:
             use_attributions = True
             pre_padding = [0. for _ in range(ip["document_offset"])]
-            post_padding = [0. for _ in range(self.pad_to - len(pre_padding) - len(ip["weights"]))]
+            post_padding = [0. for _ in range(max(0, self.max_len - len(pre_padding) - len(ip["weights"])))]
             weights = pre_padding + ip["weights"] + post_padding
+
             relevance_scores = pre_padding + ip["relevance_scores"] + post_padding
         else:
             use_attributions = False
-            weights = [0. for _ in range(self.pad_to)]
+            weights = [0. for _ in range(self.max_len)]
             relevance_scores = weights
         input_seq = self.tokenizer.convert_tokens_to_ids(
-            ip["input_tokens"] + [self.tokenizer.pad_token for _ in range(self.pad_to - len(ip["input_tokens"]))]
+            ip["input_tokens"] + [self.tokenizer.pad_token for _ in range(self.max_len - len(ip["input_tokens"]))]
         )
+
+        weights = weights[:self.max_len]
+        relevance_scores = relevance_scores[:self.max_len]
+        input_seq = input_seq[:self.max_len]
+
         attribution_info = (use_attributions, torch.tensor(weights), torch.tensor(relevance_scores))
         return torch.tensor(input_seq), self.labels[idx], attribution_info
 
