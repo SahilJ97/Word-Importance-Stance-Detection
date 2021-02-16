@@ -9,7 +9,7 @@ from torch.optim import Adam
 from pytorch_lightning.metrics.functional import f1
 from src import visualize
 
-DEVICE = "cuda:3" if torch.cuda.is_available() else "cpu"  # use CUDA_VISIBLE_DEVICES=i python3 train.py?
+DEVICE = "cuda:3" if torch.cuda.is_available() else "cpu"  # use CUDA_VISIBLE_DEVICES=i python3 train.py? causes issue
 NUM_EPOCHS = 20
 
 """
@@ -27,6 +27,12 @@ learn_rate = float(learn_rate)
 k = int(k)
 use_prior = use_prior in ["true", "True", "t"]
 lda = float(lda)  # lambda (prior loss coefficient)
+
+
+def empty_cache():
+    if "cuda" in DEVICE:
+        with torch.cuda.device(DEVICE):
+            torch.cuda.empty_cache()
 
 
 def expected_gradients(x, y, references):
@@ -69,8 +75,7 @@ def train():
         running_correctness_loss, running_prior_loss = 0., 0.
         num_prior_losses = 0
         for i, data in enumerate(train_loader, 0):
-            with torch.cuda.device(DEVICE):
-                torch.cuda.empty_cache()
+            empty_cache()
             inputs, labels, attribution_info = data
             use_attributions, weights, relevance_scores = attribution_info
             inputs, reference_inputs = inputs[:batch_size], inputs[batch_size:]
@@ -89,8 +94,7 @@ def train():
             if use_prior:
                 for j in range(len(inputs)):
                     if use_attributions[j]:
-                        with torch.cuda.device(DEVICE):
-                            torch.cuda.empty_cache()
+                        empty_cache()
                         # Compute prior loss and back-propagate
                         attributions = expected_gradients(inputs[j], labels[j], reference_inputs)
                         attributions = torch.abs(attributions)
@@ -136,24 +140,31 @@ def train():
             all_labels = []
             all_outputs = []
             for i, data in enumerate(dev_loader, 0):
-                with torch.cuda.device(DEVICE):
-                    torch.cuda.empty_cache()
+                empty_cache()
                 inputs, labels, _ = data
                 inputs = inputs.to(DEVICE)
                 labels = one_hot(labels, num_classes=3).float()
                 labels = labels.to(DEVICE)
                 all_labels.append(labels)
-                outputs = model.forward(inputs=inputs)  # OOM third time around!!!
+                outputs = model.forward(inputs=inputs)
                 all_outputs.append(outputs)
             all_labels = torch.cat(all_labels, dim=0)
             all_outputs = torch.cat(all_outputs, dim=0)
             correctness_loss = binary_cross_entropy(all_outputs, all_labels)
-            f = f1(all_outputs, all_labels, num_classes=3, average="macro", multilabel=True)
+            zero_labels, one_labels = all_labels[:, 0], all_labels[:, 1]
+            zero_outputs, one_outputs = all_outputs[:, 0], all_outputs[:, 1]
+            _, output_indices = torch.max(outputs, dim=-1)
+            _, label_indices = torch.max(labels, dim=-1)
+            zero_f1 = f1(zero_labels, zero_outputs, num_classes=1)
+            one_f1 = f1(one_labels, one_outputs, num_classes=1)
+            print(label_indices)
+            total_f1 = f1(label_indices, output_indices, num_classes=3, average="macro")
         print(f"\tLoss: {correctness_loss.item()}")
-        print(f"\tF1: {f}")
+        print(f"\tF1: {zero_f1.item(), one_f1.item(), total_f1.item()}")
 
 
 if __name__ == "__main__":
+    print("Loading data...")
     train_set = VastReader(
         "../data/VAST/vast_train.csv",
         "../data/VAST_word_importance/token_appearances.tsv",
@@ -165,6 +176,7 @@ if __name__ == "__main__":
     )
     dev_set = VastReader("../data/VAST/vast_dev.csv")
     explainer = AttributionPriorExplainer(train_set, batch_size=batch_size, k=k)
+    print("Loading model...")
     model = BaselineBert()
     model.to(DEVICE)
     optimizer = Adam(model.parameters(), lr=1e-4)
