@@ -133,6 +133,7 @@ def train():
         all_labels = []
         all_outputs = []
         for i, data in enumerate(dev_loader, 0):
+            print(f"Dev batch {i}")
             with torch.cuda.device(DEVICE):
                 torch.cuda.empty_cache()
             inputs, labels, _ = data
