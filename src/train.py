@@ -63,7 +63,7 @@ def train():
         with open(html_file, "w") as out_file:
             out_file.write(visualize.header)
 
-        # Train
+        """# Train
         print(f"\nBeginning epoch {epoch}...")
         running_correctness_loss, running_prior_loss = 0., 0.
         num_prior_losses = 0
@@ -122,7 +122,7 @@ def train():
                 print(f"Epoch {epoch} iteration {i}")
                 print(f"\tRunning correctness loss: {running_correctness_loss/i}")
                 if num_prior_losses > 0:
-                    print(f"\tRunning prior loss: {running_prior_loss/num_prior_losses}")
+                    print(f"\tRunning prior loss: {running_prior_loss/num_prior_losses}")"""
 
         # Save
         print("Saving model...")
@@ -141,7 +141,7 @@ def train():
             labels = one_hot(labels, num_classes=3).float()
             labels = labels.to(DEVICE)
             all_labels.append(labels)
-            outputs = model.forward(inputs=inputs)
+            outputs = model.forward(inputs=inputs)  # OOM third time around!!!
             all_outputs.append(outputs)
         all_labels = torch.cat(all_labels, dim=0)
         all_outputs = torch.cat(all_outputs, dim=0)
