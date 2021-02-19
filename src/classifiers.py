@@ -14,13 +14,15 @@ class VastClassifier(nn.Module, ABC):  # attribution usage occurs in loss functi
 class BaselineBert(VastClassifier, ABC):
     def __init__(self, pretrained_model="bert-base-uncased"):
         super(BaselineBert, self).__init__()
-        self.bert_classifier = BertForSequenceClassification.from_pretrained(
+        self.bert_model = BertModel.from_pretrained(
             pretrained_model,
             num_labels=self.num_labels,
         )
+        self.hidden_layer = torch.nn.Linear(768, 633)
+        self.output_layer = torch.nn.Linear(633, 3)
 
     def to(self, *args, **kwargs):
-        self.bert_classifier = self.bert_classifier.to(*args, **kwargs)
+        self.bert_model = self.bert_model.to(*args, **kwargs)
         return super().to(*args, **kwargs)
 
     def forward(self, inputs=None, inputs_embeds=None):
@@ -28,14 +30,19 @@ class BaselineBert(VastClassifier, ABC):
             raise ValueError("Either inputs or inputs_embeds must be provided")
         if inputs is not None:
             inputs_embeds = self.get_inputs_embeds(inputs)
-        logits = self.bert_classifier.forward(inputs_embeds=inputs_embeds)
-        probs = torch.nn.functional.softmax(logits[0], dim=-1)
+        bert_outputs = self.bert_model.forward(inputs_embeds=inputs_embeds)[0]
+        bert_outputs = bert_outputs.transpose(0, 1)[-1]
+        bert_outputs = torch.nn.functional.relu(bert_outputs)
+        hl = self.hidden_layer(bert_outputs)
+        hl = torch.nn.functional.relu(hl)
+        ol = self.output_layer(hl)
+        probs = torch.nn.functional.softmax(ol, dim=-1)
         return probs
 
     def get_inputs_embeds(self, inputs):
         inputs = inputs.long()
         token_type_ids = torch.zeros_like(inputs, dtype=torch.long)
-        return self.bert_classifier.bert.embeddings(input_ids=inputs, token_type_ids=token_type_ids)
+        return self.bert_model.embeddings(input_ids=inputs, token_type_ids=token_type_ids)
 
 
 """class MemoryNetwork(VastClassifier, ABC):

@@ -127,6 +127,7 @@ def train():
                         with open(html_file, "a") as out_file:
                             out_file.write(f"<p>Model attributions:</p>\n{attributions_html}\n")
                             out_file.write(f"<p>Attribution labels:</p>\n{weights_html}\n")
+                            out_file.write(f"<p>predicted, actual: {outputs[j].tolist(), labels[j].tolist()}</p>\n")
 
             # Print running losses every 10 batches
             if i % 10 == 0 and i != 0:
@@ -136,7 +137,7 @@ def train():
                     print(f"\tRunning prior loss: {running_prior_loss/num_prior_losses}")
 
         # Save
-        print("Saving model...")
+        print("Saving model...")  # Only if loss decreased!!!
         torch.save(model, f"../output/{model_name}.pt")
 
         # Validate
@@ -177,6 +178,8 @@ if __name__ == "__main__":
         smooth_param=smooth_param,
         relevance_type=relevance_type
     )
+    first_pt = train_set[0]
+    i, l, _ = first_pt
     dev_set = VastReader("../data/VAST/vast_dev.csv")
     explainer = AttributionPriorExplainer(train_set, batch_size=batch_size, k=k)
     print("Loading model...")
