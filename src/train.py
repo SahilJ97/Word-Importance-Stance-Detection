@@ -76,6 +76,7 @@ def train():
         running_correctness_loss, running_prior_loss = 0., 0.
         num_prior_losses = 0
         for i, data in enumerate(train_loader, 0):
+            optimizer.zero_grad()
             empty_cache()
             inputs, labels, attribution_info = data
             #print(train_set.tokenizer.convert_ids_to_tokens(inputs[0]))
@@ -91,8 +92,6 @@ def train():
             correctness_loss = binary_cross_entropy(outputs, labels)
             running_correctness_loss += correctness_loss.item()
             correctness_loss.backward()
-            optimizer.step()
-            optimizer.zero_grad()
 
             if use_prior:
                 for j in range(len(inputs)):
@@ -108,11 +107,9 @@ def train():
                         num_prior_losses += 1
                         try:
                             prior_loss.backward()
-                            optimizer.step()
                         except RuntimeError as e:  # Once occurred unexpectedly during 8th epoch
                             print("RuntimeError while backpropagating prior loss. Skipping...")
                             continue
-                        optimizer.zero_grad()
 
                         # Output visualization to file
                         tokens = train_set.tokenizer.convert_ids_to_tokens(inputs[j])
@@ -130,6 +127,8 @@ def train():
                             out_file.write(f"<p>Model attributions:</p>\n{attributions_html}\n")
                             out_file.write(f"<p>Attribution labels:</p>\n{weights_html}\n")
                             out_file.write(f"<p>predicted, actual: {outputs[j].tolist(), labels[j].tolist()}</p>\n")
+
+            optimizer.step()  # Use accumulated gradients from correctness loss and prior loss(es)
 
             # Print running losses every 10 batches
             if i % 10 == 0 and i != 0:
