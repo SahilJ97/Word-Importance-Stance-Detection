@@ -78,6 +78,8 @@ def train():
         for i, data in enumerate(train_loader, 0):
             empty_cache()
             inputs, labels, attribution_info = data
+            print(train_set.tokenizer.convert_ids_to_tokens(inputs[0]))
+            print(labels[0])
             has_att_labels, weights, relevance_scores = attribution_info
             inputs, reference_inputs = inputs[:batch_size], inputs[batch_size:]
             inputs = inputs.to(DEVICE)
