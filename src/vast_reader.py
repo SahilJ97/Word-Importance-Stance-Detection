@@ -141,7 +141,7 @@ class VastReader(Dataset):
                 if row["new_id"] in self.exclude_from_main:
                     continue
                 self.labels.append(int(row["label"]))
-                input_tokens = self.tokenizer.tokenize("[CLS] " + row["new_topic"] + " [SEP]" + row["post"])
+                input_tokens = self.tokenizer.tokenize("[CLS] " + row["new_topic"] + " [SEP] " + row["post"])
                 input_dict = {
                     "input_tokens": input_tokens,
                     "weights": None,
@@ -160,7 +160,7 @@ class VastReader(Dataset):
                     topic_tokens = self.tokenizer.tokenize("[CLS] " + row["topic"] + " [SEP]")
                     orig_word_weight_tuples = eval(row["weights"])
                     orig_tokens, orig_weight_mapping = zip(*orig_word_weight_tuples)
-                    if self.relevance_type == "tf-idf" or self.smoothing == "tf-idf":  # don't calculate
+                    if self.relevance_type == "tf-idf" or self.smoothing == "tf-idf":
                         tf_idfs = self.tf_idfs(orig_tokens, row["topic"])
                     else:
                         tf_idfs = None
