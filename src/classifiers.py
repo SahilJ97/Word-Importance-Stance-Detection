@@ -23,6 +23,8 @@ class BaselineBert(VastClassifier, ABC):
 
     def to(self, *args, **kwargs):
         self.bert_model = self.bert_model.to(*args, **kwargs)
+        self.hidden_layer.to(*args, **kwargs)
+        self.output_layer.to(*args, **kwargs)
         return super().to(*args, **kwargs)
 
     def forward(self, inputs=None, inputs_embeds=None):

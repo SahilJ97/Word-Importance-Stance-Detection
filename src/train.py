@@ -45,7 +45,7 @@ def expected_gradients(x, y, references):
         r_embeds = torch.unsqueeze(r_embeds, dim=0)
         shifted_inputs_embeds = r_embeds + alpha * (x_embeds - r_embeds)
         shifted_output = model.forward(inputs_embeds=shifted_inputs_embeds)
-        shifted_loss = binary_cross_entropy(shifted_output, y)
+        shifted_loss = binary_cross_entropy(torch.squeeze(shifted_output, dim=0), y)
         derivatives = torch.autograd.grad(
             outputs=shifted_loss,
             inputs=shifted_inputs_embeds,
@@ -88,7 +88,7 @@ def train():
             labels = labels[:batch_size]
             labels = one_hot(labels, num_classes=3).float()
             labels = labels.to(DEVICE)
-            outputs = model.forward(inputs=inputs)  # suddenly OOM on 1st iter!
+            outputs = model.forward(inputs=inputs)
             correctness_loss = binary_cross_entropy(outputs, labels)
             running_correctness_loss += correctness_loss.item()
             correctness_loss.backward()
@@ -179,8 +179,6 @@ if __name__ == "__main__":
         smooth_param=smooth_param,
         relevance_type=relevance_type
     )
-    first_pt = train_set[0]
-    i, l, _ = first_pt
     dev_set = VastReader("../data/VAST/vast_dev.csv")
     explainer = AttributionPriorExplainer(train_set, batch_size=batch_size, k=k)
     print("Loading model...")
