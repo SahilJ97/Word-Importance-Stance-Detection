@@ -186,5 +186,5 @@ if __name__ == "__main__":
     print("Loading model...")
     model = BaselineBert()
     model.to(DEVICE)
-    optimizer = Adam(model.parameters(), lr=1e-4)
+    optimizer = Adam(model.parameters(), lr=learn_rate)
     train()
