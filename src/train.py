@@ -132,13 +132,13 @@ def train():
             # Print running losses every 10 batches
             if i % 10 == 0 and i != 0:
                 print(f"Epoch {epoch} iteration {i}")
-                print(f"\tRunning correctness loss: {running_correctness_loss/i}")
+                print(f"\tRunning correctness loss: {running_correctness_loss/(i+1)}")
                 if num_prior_losses > 0:
                     print(f"\tRunning prior loss: {running_prior_loss/num_prior_losses}")
 
         # Save
-        print("Saving model...")  # Only if loss decreased!!!
-        torch.save(model, f"../output/{model_name}.pt")
+        #print("Saving model...")  # Only if loss decreased!!!
+        #torch.save(model, f"../output/{model_name}.pt")
 
         # Validate
         print("Validating...")
