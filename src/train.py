@@ -180,7 +180,8 @@ if __name__ == "__main__":
         relevance_type=relevance_type
     )
     dev_set = VastReader("../data/VAST/vast_dev.csv")
-    explainer = AttributionPriorExplainer(train_set, batch_size=batch_size, k=k)
+    if use_prior:
+        explainer = AttributionPriorExplainer(train_set, batch_size=batch_size, k=k)
     print("Loading model...")
     model = BaselineBert()
     model.to(DEVICE)

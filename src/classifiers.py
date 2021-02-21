@@ -33,9 +33,9 @@ class BaselineBert(VastClassifier, ABC):
         if inputs is not None:
             inputs_embeds = self.get_inputs_embeds(inputs)
         #with torch.no_grad():  # see what happens when you fix BERT, like Emily did
-        bert_outputs = self.bert_model.forward(inputs_embeds=inputs_embeds)[0]  # all hidden states
-        bert_outputs = bert_outputs.transpose(0, 1)[0]  # hidden states for [CLS] tokens
-        bert_outputs = torch.nn.functional.relu(bert_outputs)
+        last_hidden_state, pooler_outputs = self.bert_model.forward(inputs_embeds=inputs_embeds)  # all hidden states
+        #bert_outputs = last_hidden_state.transpose(0, 1)[0]  # hidden states for [CLS] tokens across all sequences
+        bert_outputs = torch.nn.functional.relu(pooler_outputs)
         hl = self.hidden_layer(bert_outputs)
         hl = torch.nn.functional.relu(hl)
         ol = self.output_layer(hl)
