@@ -172,7 +172,7 @@ def train():
             total_f1 = (zero_f1 + one_f1 + two_f1) / 3"""
             _, all_labels = torch.max(all_labels, dim=-1)
             _, all_outputs = torch.max(all_outputs, dim=-1)
-            class_f1 = f1_score(all_labels.tolist(), all_outputs.tolist(), [0, 1, 2])
+            class_f1 = f1_score(all_labels.tolist(), all_outputs.tolist(), [0, 1, 2], average=None)
         print(f"\tLoss: {correctness_loss.item()}")
         print(f"\tF1: {class_f1[0], class_f1[1], np.sum(class_f1)/3}")
 
