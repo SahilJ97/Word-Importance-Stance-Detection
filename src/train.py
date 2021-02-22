@@ -61,7 +61,10 @@ def expected_gradients(x, y, references):
 
 
 def train():
-    train_loader = DataLoader(train_set, batch_size + k, shuffle=True)  # k examples are used to compute attributions
+    train_loader_batch_size = batch_size
+    if use_prior:
+        train_loader_batch_size += k  # k examples are used to compute attributions
+    train_loader = DataLoader(train_set, train_loader_batch_size, shuffle=True)
     dev_loader = DataLoader(dev_set, batch_size, shuffle=False)
     for epoch in range(NUM_EPOCHS):
 
@@ -160,7 +163,7 @@ def train():
             correctness_loss = binary_cross_entropy(all_outputs, all_labels)
             zero_labels, one_labels, two_labels = all_labels[:, 0], all_labels[:, 1], all_labels[:, 2]
             zero_outputs, one_outputs, two_outputs = all_outputs[:, 0], all_outputs[:, 1], all_outputs[:, 2]
-            zero_f1 = f1(zero_labels, zero_outputs, num_classes=1).item()
+            zero_f1 = f1(zero_labels, zero_outputs, num_classes=1).item()  # Emily used scikit-learn implementation...
             one_f1 = f1(one_labels, one_outputs, num_classes=1).item()
             two_f1 = f1(two_labels, two_outputs, num_classes=1).item()
             total_f1 = (zero_f1 + one_f1 + two_f1) / 3
