@@ -1,3 +1,4 @@
+import sklearn
 import torch
 from attributionpriors.attributionpriors.pytorch_ops import AttributionPriorExplainer
 from sys import argv
@@ -7,7 +8,9 @@ from torch.utils.data import DataLoader
 from torch.nn.functional import binary_cross_entropy, one_hot
 from torch.optim import Adam
 from pytorch_lightning.metrics.functional import f1
+from sklearn.metrics import f1_score
 from src import visualize
+import numpy as np
 
 DEVICE = "cuda:3" if torch.cuda.is_available() else "cpu"  # use CUDA_VISIBLE_DEVICES=i python3 train.py? causes issue
 NUM_EPOCHS = 20
@@ -161,14 +164,17 @@ def train():
             all_labels = torch.cat(all_labels, dim=0)
             all_outputs = torch.cat(all_outputs, dim=0)
             correctness_loss = binary_cross_entropy(all_outputs, all_labels)
-            zero_labels, one_labels, two_labels = all_labels[:, 0], all_labels[:, 1], all_labels[:, 2]
+            """zero_labels, one_labels, two_labels = all_labels[:, 0], all_labels[:, 1], all_labels[:, 2]
             zero_outputs, one_outputs, two_outputs = all_outputs[:, 0], all_outputs[:, 1], all_outputs[:, 2]
             zero_f1 = f1(zero_labels, zero_outputs, num_classes=1).item()  # Emily used scikit-learn implementation...
             one_f1 = f1(one_labels, one_outputs, num_classes=1).item()
             two_f1 = f1(two_labels, two_outputs, num_classes=1).item()
-            total_f1 = (zero_f1 + one_f1 + two_f1) / 3
+            total_f1 = (zero_f1 + one_f1 + two_f1) / 3"""
+            _, all_labels = torch.max(all_labels, dim=-1)
+            _, all_outputs = torch.max(all_outputs, dim=-1)
+            class_f1 = f1_score(all_labels.tolist(), all_outputs.tolist(), [0, 1, 2], )
         print(f"\tLoss: {correctness_loss.item()}")
-        print(f"\tF1: {zero_f1, one_f1, total_f1}")
+        print(f"\tF1: {class_f1[0], class_f1[1], np.sum(class_f1)/3}")
 
 
 if __name__ == "__main__":
