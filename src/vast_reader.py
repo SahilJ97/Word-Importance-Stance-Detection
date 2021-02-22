@@ -14,8 +14,19 @@ def contains_alpha(s):
     return False
 
 
+def crop_or_pad(seq, length, padding_item="[PAD]"):
+    seq = list(seq)
+    if len(seq) > length:
+        seq = seq[:length]
+    else:
+        seq.extend([padding_item for i in range(length - len(seq))])
+    return seq
+
+
 class VastReader(Dataset):
-    max_len = 212
+    topic_len = 5
+    doc_len = 205
+    max_len = topic_len + doc_len + 2
 
     def __init__(self,
                  main_csv,
@@ -69,10 +80,10 @@ class VastReader(Dataset):
         for i in range(len(new_tokens)):
             if len(new2old[i]) > 0:
                 new_token_scores.append(
-                    max(
-                        [orig_value_mapping[j] for j in new2old[i]]
-                    )
+                    max([orig_value_mapping[j] for j in new2old[i]])
                 )
+            else:
+                new_token_scores.append(0.)
         return new_tokens, new_token_scores
 
     def tf_idfs(self, orig_tokens, topic):
@@ -141,12 +152,14 @@ class VastReader(Dataset):
                 if row["new_id"] in self.exclude_from_main:
                     continue
                 self.labels.append(int(row["label"]))
-                input_tokens = self.tokenizer.tokenize("[CLS] " + row["new_topic"] + " [SEP] " + row["post"])
+                topic_tokens = self.tokenizer.tokenize("[CLS] " + row["new_topic"])
+                topic_tokens = crop_or_pad(topic_tokens, self.topic_len + 1)
+                doc_tokens = self.tokenizer.tokenize("[SEP] " + row["post"])
+                doc_tokens = crop_or_pad(doc_tokens, self.doc_len + 1)
                 input_dict = {
-                    "input_tokens": input_tokens,
+                    "input_tokens": topic_tokens + doc_tokens,
                     "weights": None,
                     "relevance_scores": None,
-                    "document_offset": None
                 }
                 self.inputs.append(input_dict)
 
@@ -157,7 +170,8 @@ class VastReader(Dataset):
                 reader = DictReader(f)
                 for row in reader:
                     self.labels.append(int(row["label"]))
-                    topic_tokens = self.tokenizer.tokenize("[CLS] " + row["topic"] + " [SEP]")
+                    topic_tokens = self.tokenizer.tokenize("[CLS] " + row["topic"])
+                    topic_tokens = crop_or_pad(topic_tokens, self.topic_len + 1)
                     orig_word_weight_tuples = eval(row["weights"])
                     orig_tokens, orig_weight_mapping = zip(*orig_word_weight_tuples)
                     if self.relevance_type == "tf-idf" or self.smoothing == "tf-idf":
@@ -165,15 +179,26 @@ class VastReader(Dataset):
                     else:
                         tf_idfs = None
                     orig_weight_mapping = self.smooth(orig_weight_mapping, tf_idfs)
-                    doc_tokens, weights = self.new_token_mapping(row["argument"], orig_tokens, orig_weight_mapping)
-                    doc_offset = len(topic_tokens)
+                    doc_tokens, weights = self.new_token_mapping(
+                        "[SEP] " + row["argument"],
+                        orig_tokens,
+                        orig_weight_mapping
+                    )
+                    weights = crop_or_pad(weights, self.doc_len + 1, padding_item=0.)
+                    weight_sum = sum(weights)
+                    weights = [w / weight_sum for w in weights]  # re-normalize (after potentially cropping)
+                    doc_tokens = crop_or_pad(doc_tokens, self.doc_len + 1)
                     relevance_scores = self.relevance_scores(orig_tokens, tf_idfs)
-                    _, relevance_scores = self.new_token_mapping(row["argument"], orig_tokens, relevance_scores)
+                    _, relevance_scores = self.new_token_mapping(
+                        "[SEP] " + row["argument"],
+                        orig_tokens,
+                        relevance_scores
+                    )
+                    relevance_scores = crop_or_pad(relevance_scores, self.doc_len + 1, padding_item=0.)
                     input_dict = {
                         "input_tokens": topic_tokens + doc_tokens,
                         "weights": weights,
                         "relevance_scores": relevance_scores,
-                        "document_offset": doc_offset
                     }
                     self.inputs.append(input_dict)
         except TypeError:  # Handle weird error that occurs AFTER the entire file is read
@@ -183,26 +208,15 @@ class VastReader(Dataset):
         ip = self.inputs[idx]
         if ip["weights"]:
             has_attribution_label = True
-            pre_padding = [0. for _ in range(ip["document_offset"])]
-            post_padding = [0. for _ in range(max(0, self.max_len - len(pre_padding) - len(ip["weights"])))]
-            weights = pre_padding + ip["weights"] + post_padding
-
-            relevance_scores = pre_padding + ip["relevance_scores"] + post_padding
+            weights = [0. for i in range(1 + self.topic_len)] + ip["weights"]
+            relevance_scores = [0. for i in range(1 + self.topic_len)] + ip["relevance_scores"]
         else:
             has_attribution_label = False
             weights = [0. for _ in range(self.max_len)]
             relevance_scores = weights
         input_seq = self.tokenizer.convert_tokens_to_ids(
-            ip["input_tokens"] + [self.tokenizer.pad_token for _ in range(self.max_len - len(ip["input_tokens"]))]
+            ip["input_tokens"]
         )
-
-        weights = weights[:self.max_len]
-        if has_attribution_label:
-            denom = sum(weights)
-            weights = [w/denom for w in weights]  # Re-normalize weights (after potentially cropping)
-        relevance_scores = relevance_scores[:self.max_len]
-        input_seq = input_seq[:self.max_len]
-
         attribution_info = (has_attribution_label, torch.tensor(weights), torch.tensor(relevance_scores))
         return torch.tensor(input_seq), self.labels[idx], attribution_info
 

@@ -12,13 +12,14 @@ class VastClassifier(nn.Module, ABC):  # attribution usage occurs in loss functi
 
 
 class BaselineBert(VastClassifier, ABC):
-    def __init__(self, pretrained_model="bert-base-uncased"):
+    def __init__(self, pretrained_model="bert-base-uncased", topic_len=5):
         super(BaselineBert, self).__init__()
+        self.topic_len = topic_len
         self.bert_model = BertModel.from_pretrained(
             pretrained_model,
             num_labels=self.num_labels,
         )
-        self.hidden_layer = torch.nn.Linear(768, 633)
+        self.hidden_layer = torch.nn.Linear(768*2, 633)
         self.output_layer = torch.nn.Linear(633, 3)
 
     def to(self, *args, **kwargs):
@@ -32,11 +33,14 @@ class BaselineBert(VastClassifier, ABC):
             raise ValueError("Either inputs or inputs_embeds must be provided")
         if inputs is not None:
             inputs_embeds = self.get_inputs_embeds(inputs)
-        #with torch.no_grad():  # see what happens when you fix BERT, like Emily did
-        last_hidden_state, pooler_outputs = self.bert_model.forward(inputs_embeds=inputs_embeds)  # all hidden states
-        #bert_outputs = last_hidden_state.transpose(0, 1)[0]  # hidden states for [CLS] tokens across all sequences
-        bert_outputs = torch.nn.functional.relu(pooler_outputs)
-        hl = self.hidden_layer(bert_outputs)
+        #with torch.no_grad():  # fix BERT
+        last_hidden_state, pooler_outputs = self.bert_model.forward(inputs_embeds=inputs_embeds)
+        topic_embeds = last_hidden_state[:, 1:1+self.topic_len, :]
+        doc_embeds = last_hidden_state[:, 2+self.topic_len:, :]
+        topic = torch.mean(topic_embeds, dim=1)
+        doc = torch.mean(doc_embeds, dim=1)
+        both_embeds = torch.cat([topic, doc], dim=-1)
+        hl = self.hidden_layer(both_embeds)
         hl = torch.nn.functional.relu(hl)
         ol = self.output_layer(hl)
         probs = torch.nn.functional.softmax(ol, dim=-1)

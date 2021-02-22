@@ -183,7 +183,7 @@ if __name__ == "__main__":
     if use_prior:
         explainer = AttributionPriorExplainer(train_set, batch_size=batch_size, k=k)
     print("Loading model...")
-    model = BaselineBert()
+    model = BaselineBert(topic_len=train_set.topic_len)
     model.to(DEVICE)
     optimizer = Adam(model.parameters(), lr=learn_rate)
     train()
