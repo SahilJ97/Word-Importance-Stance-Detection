@@ -166,11 +166,12 @@ def train():
             for i, data in enumerate(dev_loader, 0):
                 empty_cache()
                 inputs, labels, _ = data
+                pad_mask = get_pad_mask(inputs)
                 inputs = inputs.to(DEVICE)
                 labels = one_hot(labels, num_classes=3).float()
                 labels = labels.to(DEVICE)
                 all_labels.append(labels)
-                outputs = model.forward(inputs=inputs)
+                outputs = model.forward(pad_mask, inputs=inputs)
                 all_outputs.append(outputs)
             all_labels = torch.cat(all_labels, dim=0)
             all_outputs = torch.cat(all_outputs, dim=0)
