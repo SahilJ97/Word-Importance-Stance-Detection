@@ -19,16 +19,17 @@ class BaselineBert(VastClassifier, ABC):
             pretrained_model,
             num_labels=self.num_labels,
         )
+        self.dropout = nn.Dropout(p=.2046)
         self.hidden_layer = torch.nn.Linear(768*2, 633)
         self.output_layer = torch.nn.Linear(633, 3)
 
     def to(self, *args, **kwargs):
         self.bert_model = self.bert_model.to(*args, **kwargs)
-        self.hidden_layer.to(*args, **kwargs)  # use dropout!!! .2046 !!! before HL! right after BERT!!! remove for eval!
+        self.hidden_layer.to(*args, **kwargs)
         self.output_layer.to(*args, **kwargs)
         return super().to(*args, **kwargs)
 
-    def forward(self, pad_mask, inputs=None, inputs_embeds=None):
+    def forward(self, pad_mask, inputs=None, inputs_embeds=None, use_dropout=True):
         if inputs is None and inputs_embeds is None:
             raise ValueError("Either inputs or inputs_embeds must be provided")
         if inputs is not None:
@@ -42,6 +43,8 @@ class BaselineBert(VastClassifier, ABC):
         topic = torch.mean(topic_embeds, dim=1)
         doc = torch.mean(doc_embeds, dim=1)
         both_embeds = torch.cat([topic, doc], dim=-1)
+        if use_dropout:
+            both_embeds = self.dropout(both_embeds)
         hl = self.hidden_layer(both_embeds)
         hl = torch.nn.functional.relu(hl)
         ol = self.output_layer(hl)

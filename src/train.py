@@ -171,7 +171,7 @@ def train():
                 labels = one_hot(labels, num_classes=3).float()
                 labels = labels.to(DEVICE)
                 all_labels.append(labels)
-                outputs = model.forward(pad_mask, inputs=inputs)
+                outputs = model.forward(pad_mask, inputs=inputs, use_dropout=False)
                 all_outputs.append(outputs)
             all_labels = torch.cat(all_labels, dim=0)
             all_outputs = torch.cat(all_outputs, dim=0)
@@ -194,9 +194,9 @@ if __name__ == "__main__":
         smooth_param=smooth_param,
         relevance_type=relevance_type
     )
-    first_input, first_label, _ = train_set[0]
+    """first_input, first_label, _ = train_set[0]
     print(train_set.tokenizer.convert_ids_to_tokens(first_input))
-    print(first_label)
+    print(first_label)"""
 
     dev_set = VastReader("../data/VAST/vast_dev.csv")
     if use_prior:
