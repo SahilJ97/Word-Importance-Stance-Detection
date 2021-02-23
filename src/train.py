@@ -45,7 +45,7 @@ def get_pad_mask(inputs):
         for j in range(len(inputs[0])):
             if inputs[i][j] == 0:
                 mask[i][j] = 0
-    return torch.tensor(mask, dtype=torch.float)
+    return torch.tensor(mask, dtype=torch.float, device=DEVICE)
 
 
 def expected_gradients(x, y, references, x_mask):
