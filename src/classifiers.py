@@ -20,8 +20,8 @@ class BaselineBert(VastClassifier, ABC):
             num_labels=self.num_labels,
         )
         self.dropout = nn.Dropout(p=.2046)
-        self.hidden_layer = torch.nn.Linear(768*2, 633)
-        self.output_layer = torch.nn.Linear(633, 3)
+        self.hidden_layer = torch.nn.Linear(768*2, 283)
+        self.output_layer = torch.nn.Linear(283, 3)
 
     def to(self, *args, **kwargs):
         self.bert_model = self.bert_model.to(*args, **kwargs)
@@ -34,10 +34,10 @@ class BaselineBert(VastClassifier, ABC):
             raise ValueError("Either inputs or inputs_embeds must be provided")
         if inputs is not None:
             inputs_embeds = self.get_inputs_embeds(inputs)
-        #with torch.no_grad():  # fix BERT
-        last_hidden_state, pooler_outputs = self.bert_model.forward(inputs_embeds=inputs_embeds)
+        with torch.no_grad():  # fix BERT
+            last_hidden_state, pooler_outputs = self.bert_model.forward(inputs_embeds=inputs_embeds)
         pad_mask = torch.unsqueeze(pad_mask, dim=-1)
-        last_hidden_state = torch.stack([p*l for p, l in zip(pad_mask, last_hidden_state)])
+        last_hidden_state = pad_mask * last_hidden_state
         topic_embeds = last_hidden_state[:, 1:1+self.topic_len, :]
         doc_embeds = last_hidden_state[:, 2+self.topic_len:, :]
         topic = torch.mean(topic_embeds, dim=1)

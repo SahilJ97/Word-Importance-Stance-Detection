@@ -145,7 +145,7 @@ def train():
                             out_file.write(f"<p>Attribution labels:</p>\n{weights_html}\n")
                             out_file.write(f"<p>predicted, actual: {outputs[j].tolist(), labels[j].tolist()}</p>\n")
 
-            optimizer.step()  # Use accumulated gradients from correctness loss and prior loss(es)
+            optimizer.step()  # Use accumulated gradients from correctness loss term and prior loss term(s)
 
             # Print running losses every 10 batches
             if i % 10 == 0 and i != 0:
