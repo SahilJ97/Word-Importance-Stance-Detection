@@ -1,7 +1,7 @@
 from abc import ABC
 import torch
 import torch.nn as nn
-from transformers import BertForSequenceClassification, BertModel
+from transformers import BertModel
 
 
 class VastClassifier(nn.Module, ABC):  # attribution usage occurs in loss function!
@@ -34,14 +34,19 @@ class BaselineBert(VastClassifier, ABC):
             raise ValueError("Either inputs or inputs_embeds must be provided")
         if inputs is not None:
             inputs_embeds = self.get_inputs_embeds(inputs)
-        with torch.no_grad():  # fix BERT
+        with torch.no_grad():  # leave BERT fixed
             last_hidden_state, pooler_outputs = self.bert_model.forward(inputs_embeds=inputs_embeds)
+        print(pad_mask.size())
+        topic_token_counts = torch.sum(pad_mask[:, 1:1 + self.topic_len], dim=-1)  # skip first token ([CLS])
+        doc_token_counts = torch.sum(pad_mask[:, 2+self.topic_len:], dim=-1)  # skip first token after topic ([SEP])
         pad_mask = torch.unsqueeze(pad_mask, dim=-1)
-        last_hidden_state = pad_mask * last_hidden_state
+        last_hidden_state = pad_mask * last_hidden_state  # zero the embeddings corresponding to [PAD] tokens
         topic_embeds = last_hidden_state[:, 1:1+self.topic_len, :]
         doc_embeds = last_hidden_state[:, 2+self.topic_len:, :]
-        topic = torch.mean(topic_embeds, dim=1)
+        topic = torch.sum(topic_embeds, dim=1)
+        topic = topic / topic_token_counts[:, None]
         doc = torch.mean(doc_embeds, dim=1)
+        doc = doc / doc_token_counts[:, None]
         both_embeds = torch.cat([topic, doc], dim=-1)
         if use_dropout:
             both_embeds = self.dropout(both_embeds)

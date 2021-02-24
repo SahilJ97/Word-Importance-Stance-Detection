@@ -39,6 +39,7 @@ def empty_cache():
 
 
 def get_pad_mask(inputs):
+    """Used to zero embeddings corresponding to [PAD] tokens before pooling BERT embeddings"""
     inputs = inputs.tolist()
     mask = np.ones_like(inputs)
     for i in range(len(inputs)):
@@ -51,13 +52,14 @@ def get_pad_mask(inputs):
 def expected_gradients(x, y, references, x_mask):
     input_length = len(x)
     x_embeds = model.get_inputs_embeds(torch.unsqueeze(x, dim=0))
+    pad_mask = torch.unsqueeze(x_mask, dim=0)
     references_embeds = model.get_inputs_embeds(references)
     alphas = torch.rand(len(references), device=DEVICE)
     attributions = torch.zeros((input_length,), device=DEVICE)
     for r_embeds, alpha in zip(references_embeds, alphas):
         r_embeds = torch.unsqueeze(r_embeds, dim=0)
         shifted_inputs_embeds = r_embeds + alpha * (x_embeds - r_embeds)
-        shifted_output = model.forward(x_mask, inputs_embeds=shifted_inputs_embeds)
+        shifted_output = model.forward(pad_mask, inputs_embeds=shifted_inputs_embeds)
         print(shifted_output.size(), y.size())
         shifted_loss = cross_entropy(shifted_output, torch.unsqueeze(y, dim=-1))
         derivatives = torch.autograd.grad(
@@ -115,7 +117,7 @@ def train():
                     if has_att_labels[j]:
                         empty_cache()
                         # Compute prior loss and back-propagate
-                        attributions = expected_gradients(inputs[j], labels[j], reference_inputs, x_mask=pad_mask[j])
+                        attributions = expected_gradients(inputs[j], labels[j], reference_inputs, pad_mask=pad_mask[j])
                         attributions = torch.abs(attributions)
                         scores = attributions / torch.sum(attributions, dim=-1)
                         weight_tensor, relevance_tensor = weights[j].to(DEVICE), relevance_scores[j].to(DEVICE)
