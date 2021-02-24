@@ -4,7 +4,7 @@ from sys import argv
 from src.vast_reader import VastReader
 from src.classifiers import BaselineBert
 from torch.utils.data import DataLoader
-from torch.nn.functional import binary_cross_entropy, one_hot
+from torch.nn.functional import cross_entropy
 from torch.optim import Adam
 from sklearn.metrics import f1_score
 from src import visualize
@@ -58,7 +58,8 @@ def expected_gradients(x, y, references, x_mask):
         r_embeds = torch.unsqueeze(r_embeds, dim=0)
         shifted_inputs_embeds = r_embeds + alpha * (x_embeds - r_embeds)
         shifted_output = model.forward(x_mask, inputs_embeds=shifted_inputs_embeds)
-        shifted_loss = binary_cross_entropy(torch.squeeze(shifted_output, dim=0), y)
+        print(shifted_output.size(), y.size())
+        shifted_loss = cross_entropy(shifted_output, torch.unsqueeze(y, dim=-1))
         derivatives = torch.autograd.grad(
             outputs=shifted_loss,
             inputs=shifted_inputs_embeds,
@@ -103,10 +104,9 @@ def train():
             inputs = inputs.to(DEVICE)
             reference_inputs = reference_inputs.to(DEVICE)
             labels = labels[:batch_size]
-            labels = one_hot(labels, num_classes=3).float()
             labels = labels.to(DEVICE)
             outputs = model.forward(pad_mask, inputs=inputs)
-            correctness_loss = binary_cross_entropy(outputs, labels)
+            correctness_loss = cross_entropy(outputs, labels)
             running_correctness_loss += correctness_loss.item()
             correctness_loss.backward()
 
@@ -168,15 +168,13 @@ def train():
                 inputs, labels, _ = data
                 pad_mask = get_pad_mask(inputs)
                 inputs = inputs.to(DEVICE)
-                labels = one_hot(labels, num_classes=3).float()
                 labels = labels.to(DEVICE)
                 all_labels.append(labels)
                 outputs = model.forward(pad_mask, inputs=inputs, use_dropout=False)
                 all_outputs.append(outputs)
             all_labels = torch.cat(all_labels, dim=0)
             all_outputs = torch.cat(all_outputs, dim=0)
-            correctness_loss = binary_cross_entropy(all_outputs, all_labels)
-            _, all_labels = torch.max(all_labels, dim=-1)
+            correctness_loss = cross_entropy(all_outputs, all_labels)
             _, all_outputs = torch.max(all_outputs, dim=-1)
             class_f1 = f1_score(all_labels.tolist(), all_outputs.tolist(), labels=[0, 1, 2], average=None)
         print(f"\tLoss: {correctness_loss.item()}")
