@@ -45,7 +45,7 @@ class BaselineBert(VastClassifier, ABC):
         doc_embeds = last_hidden_state[:, 2+self.topic_len:, :]
         topic = torch.sum(topic_embeds, dim=1)
         topic = topic / topic_token_counts[:, None]
-        doc = torch.mean(doc_embeds, dim=1)
+        doc = torch.sum(doc_embeds, dim=1)
         doc = doc / doc_token_counts[:, None]
         both_embeds = torch.cat([topic, doc], dim=-1)
         if use_dropout:
