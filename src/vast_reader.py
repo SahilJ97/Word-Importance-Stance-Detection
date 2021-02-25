@@ -35,7 +35,7 @@ class VastReader(Dataset):
                  word_importance_csv=None,
                  smoothing=None,
                  smooth_param=.01,
-                 relevance_type="tf-idf",
+                 relevance_type="binary",
                  tokenizer=BertTokenizer.from_pretrained("bert-base-uncased"),
     ):
         """
@@ -230,6 +230,5 @@ if __name__ == "__main__":
         "../data/VAST_word_importance/token_appearances.tsv",
         exclude_from_main="../data/VAST_word_importance/special_datapoints.txt",
         word_importance_csv="../data/VAST_word_importance/processed_annotated.csv",
-        smoothing="tf-idf",
     )
     print(len(dataset))

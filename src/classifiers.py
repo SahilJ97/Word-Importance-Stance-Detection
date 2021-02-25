@@ -12,9 +12,10 @@ class VastClassifier(nn.Module, ABC):  # attribution usage occurs in loss functi
 
 
 class BaselineBert(VastClassifier, ABC):
-    def __init__(self, pretrained_model="bert-base-uncased", topic_len=5):
+    def __init__(self, pretrained_model="bert-base-uncased", topic_len=5, fix_bert=True):
         super(BaselineBert, self).__init__()
         self.topic_len = topic_len
+        self.fix_bert = fix_bert
         self.bert_model = BertModel.from_pretrained(
             pretrained_model,
             num_labels=self.num_labels,
@@ -34,26 +35,27 @@ class BaselineBert(VastClassifier, ABC):
             raise ValueError("Either inputs or inputs_embeds must be provided")
         if inputs is not None:
             inputs_embeds = self.get_inputs_embeds(inputs)
-        with torch.no_grad():  # leave BERT fixed
+        if self.fix_bert:
+            with torch.no_grad():  # leave BERT fixed
+                last_hidden_state, pooler_outputs = self.bert_model.forward(inputs_embeds=inputs_embeds)
+        else:
             last_hidden_state, pooler_outputs = self.bert_model.forward(inputs_embeds=inputs_embeds)
-        topic_token_counts = torch.sum(pad_mask[:, 1:1 + self.topic_len], dim=-1)  # skip first token ([CLS])
-        doc_token_counts = torch.sum(pad_mask[:, 2+self.topic_len:], dim=-1)  # skip first token after topic ([SEP])
+        topic_token_counts = torch.sum(pad_mask[:, 1:1 + self.topic_len], dim=-1)  # ignore first token ([CLS])
+        doc_token_counts = torch.sum(pad_mask[:, 2+self.topic_len:], dim=-1)  # ignore first token after topic ([SEP])
         pad_mask = torch.unsqueeze(pad_mask, dim=-1)
         last_hidden_state = pad_mask * last_hidden_state  # zero the embeddings corresponding to [PAD] tokens
         topic_embeds = last_hidden_state[:, 1:1+self.topic_len, :]
         doc_embeds = last_hidden_state[:, 2+self.topic_len:, :]
-        topic = torch.sum(topic_embeds, dim=1)
-        topic = topic / topic_token_counts[:, None]
-        doc = torch.sum(doc_embeds, dim=1)
-        doc = doc / doc_token_counts[:, None]
+        topic = torch.sum(topic_embeds, dim=1) / topic_token_counts[:, None]  # avg of non-[PAD] topic tokens
+        doc = torch.sum(doc_embeds, dim=1) / doc_token_counts[:, None]  # same idea for document embeddings
         both_embeds = torch.cat([topic, doc], dim=-1)
         if use_dropout:
             both_embeds = self.dropout(both_embeds)
         hl = self.hidden_layer(both_embeds)
         hl = torch.nn.functional.relu(hl)
         ol = self.output_layer(hl)
-        #probs = torch.nn.functional.softmax(ol, dim=-1)
-        return ol
+        #probs = torch.nn.functional.softmax(ol, dim=-1)  # CrossEntropyLoss applies softmax, so skip here
+        return ol  # everything here looks ok, so why is performance not up to standards?
 
     def get_inputs_embeds(self, inputs):
         inputs = inputs.long()

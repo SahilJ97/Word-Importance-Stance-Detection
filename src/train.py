@@ -59,7 +59,7 @@ def expected_gradients(x, y, references, x_mask):
     for r_embeds, alpha in zip(references_embeds, alphas):
         r_embeds = torch.unsqueeze(r_embeds, dim=0)
         shifted_inputs_embeds = r_embeds + alpha * (x_embeds - r_embeds)
-        shifted_output = model.forward(pad_mask, inputs_embeds=shifted_inputs_embeds)
+        shifted_output = model.forward(pad_mask, inputs_embeds=shifted_inputs_embeds, use_dropout=False)
         print(shifted_output.size(), y.size())
         shifted_loss = cross_entropy(shifted_output, torch.unsqueeze(y, dim=-1))
         derivatives = torch.autograd.grad(
@@ -98,8 +98,6 @@ def train():
             optimizer.zero_grad()
             empty_cache()
             inputs, labels, attribution_info = data
-            #print(train_set.tokenizer.convert_ids_to_tokens(inputs[0]))
-            #print(labels[0])
             has_att_labels, weights, relevance_scores = attribution_info
             inputs, reference_inputs = inputs[:batch_size], inputs[batch_size:]
             pad_mask = get_pad_mask(inputs)
@@ -107,7 +105,7 @@ def train():
             reference_inputs = reference_inputs.to(DEVICE)
             labels = labels[:batch_size]
             labels = labels.to(DEVICE)
-            outputs = model.forward(pad_mask, inputs=inputs)
+            outputs = model.forward(pad_mask, inputs=inputs, use_dropout=True)
             correctness_loss = cross_entropy(outputs, labels)
             running_correctness_loss += correctness_loss.item()
             correctness_loss.backward()
@@ -117,7 +115,7 @@ def train():
                     if has_att_labels[j]:
                         empty_cache()
                         # Compute prior loss and back-propagate
-                        attributions = expected_gradients(inputs[j], labels[j], reference_inputs, pad_mask=pad_mask[j])
+                        attributions = expected_gradients(inputs[j], labels[j], reference_inputs, x_mask=pad_mask[j])
                         attributions = torch.abs(attributions)
                         scores = attributions / torch.sum(attributions, dim=-1)
                         weight_tensor, relevance_tensor = weights[j].to(DEVICE), relevance_scores[j].to(DEVICE)
@@ -177,8 +175,8 @@ def train():
             all_labels = torch.cat(all_labels, dim=0)
             all_outputs = torch.cat(all_outputs, dim=0)
             correctness_loss = cross_entropy(all_outputs, all_labels)
-            _, all_outputs = torch.max(all_outputs, dim=-1)
-            class_f1 = f1_score(all_labels.tolist(), all_outputs.tolist(), labels=[0, 1, 2], average=None)
+            _, all_preds = torch.max(all_outputs, dim=-1)
+            class_f1 = f1_score(all_labels.tolist(), all_preds.tolist(), labels=[0, 1, 2], average=None)
         print(f"\tLoss: {correctness_loss.item()}")
         print(f"\tF1: {class_f1[0], class_f1[1], np.sum(class_f1)/3}")
 
@@ -188,8 +186,8 @@ if __name__ == "__main__":
     train_set = VastReader(
         "../data/VAST/vast_train.csv",
         "../data/VAST_word_importance/token_appearances.tsv",
-        exclude_from_main="../data/VAST_word_importance/special_datapoints.txt",
-        word_importance_csv="../data/VAST_word_importance/processed_annotated.csv",
+        #exclude_from_main="../data/VAST_word_importance/special_datapoints.txt",
+        #word_importance_csv="../data/VAST_word_importance/processed_annotated.csv",
         smoothing=smoothing,
         smooth_param=smooth_param,
         relevance_type=relevance_type
@@ -202,7 +200,7 @@ if __name__ == "__main__":
     if use_prior:
         explainer = AttributionPriorExplainer(train_set, batch_size=batch_size, k=k)
     print("Loading model...")
-    model = BaselineBert(topic_len=train_set.topic_len)
+    model = BaselineBert(topic_len=train_set.topic_len, fix_bert=True)  # cannot fix BERT if using attribution prior
     model.to(DEVICE)
     optimizer = Adam(model.parameters(), lr=learn_rate)
     train()
