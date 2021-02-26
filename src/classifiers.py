@@ -30,7 +30,7 @@ class BaselineBert(VastClassifier, ABC):
         self.output_layer.to(*args, **kwargs)
         return super().to(*args, **kwargs)
 
-    def forward(self, pad_mask, inputs=None, inputs_embeds=None, use_dropout=True):
+    def forward(self, mask, inputs=None, inputs_embeds=None, use_dropout=True):
         if inputs is None and inputs_embeds is None:
             raise ValueError("Either inputs or inputs_embeds must be provided")
         if inputs is not None:
@@ -40,13 +40,13 @@ class BaselineBert(VastClassifier, ABC):
                 last_hidden_state, pooler_outputs = self.bert_model.forward(inputs_embeds=inputs_embeds)
         else:
             last_hidden_state, pooler_outputs = self.bert_model.forward(inputs_embeds=inputs_embeds)
-        topic_token_counts = torch.sum(pad_mask[:, 1:1 + self.topic_len], dim=-1)  # ignore first token ([CLS])
-        doc_token_counts = torch.sum(pad_mask[:, 2+self.topic_len:], dim=-1)  # ignore first token after topic ([SEP])
-        pad_mask = torch.unsqueeze(pad_mask, dim=-1)
-        last_hidden_state = pad_mask * last_hidden_state  # zero the embeddings corresponding to [PAD] tokens
+        topic_token_counts = torch.sum(mask[:, 1:1 + self.topic_len], dim=-1)  # ignore first token ([CLS])
+        doc_token_counts = torch.sum(mask[:, 2 + self.topic_len:], dim=-1)  # ignore first token after topic ([SEP])
+        mask = torch.unsqueeze(mask, dim=-1)
+        last_hidden_state = mask * last_hidden_state
         topic_embeds = last_hidden_state[:, 1:1+self.topic_len, :]
         doc_embeds = last_hidden_state[:, 2+self.topic_len:, :]
-        topic = torch.sum(topic_embeds, dim=1) / topic_token_counts[:, None]  # avg of non-[PAD] topic tokens
+        topic = torch.sum(topic_embeds, dim=1) / topic_token_counts[:, None]  # avg of non-zeroed topic tokens
         doc = torch.sum(doc_embeds, dim=1) / doc_token_counts[:, None]  # same idea for document embeddings
         both_embeds = torch.cat([topic, doc], dim=-1)
         if use_dropout:

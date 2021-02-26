@@ -9,6 +9,12 @@ from torch.optim import Adam
 from sklearn.metrics import f1_score
 from src import visualize
 import numpy as np
+from nltk.corpus import stopwords
+import string
+
+sw = stopwords.words("english")
+punc = [c for c in string.punctuation]
+make_zero = sw + punc + ["[PAD]"]
 
 DEVICE = "cuda:3" if torch.cuda.is_available() else "cpu"  # use CUDA_VISIBLE_DEVICES=i python3 train.py? causes issue
 NUM_EPOCHS = 20
@@ -43,28 +49,31 @@ def empty_cache():
             torch.cuda.empty_cache()
 
 
-def get_pad_mask(inputs):
-    """Used to zero embeddings corresponding to [PAD] tokens before pooling BERT embeddings"""
+def get_mask(inputs, tokenizer):
+    """Used to zero embeddings corresponding to [PAD], punctuation, and stopwords before pooling BERT embeddings"""
     inputs = inputs.tolist()
     mask = np.ones_like(inputs)
     for i in range(len(inputs)):
-        for j in range(len(inputs[0])):
-            if inputs[i][j] == 0:
+        tokens = tokenizer.convert_ids_to_tokens(inputs[i])
+        for j in range(len(inputs[i])):
+            if tokens[j] in make_zero:
                 mask[i][j] = 0
+        print(tokens)
+        print(mask[i])
     return torch.tensor(mask, dtype=torch.float, device=DEVICE)
 
 
 def expected_gradients(x, y, references, x_mask):
     input_length = len(x)
     x_embeds = model.get_inputs_embeds(torch.unsqueeze(x, dim=0))
-    pad_mask = torch.unsqueeze(x_mask, dim=0)
+    mask = torch.unsqueeze(x_mask, dim=0)
     references_embeds = model.get_inputs_embeds(references)
     alphas = torch.rand(len(references), device=DEVICE)
     attributions = torch.zeros((input_length,), device=DEVICE)
     for r_embeds, alpha in zip(references_embeds, alphas):
         r_embeds = torch.unsqueeze(r_embeds, dim=0)
         shifted_inputs_embeds = r_embeds + alpha * (x_embeds - r_embeds)
-        shifted_output = model.forward(pad_mask, inputs_embeds=shifted_inputs_embeds, use_dropout=False)
+        shifted_output = model.forward(mask, inputs_embeds=shifted_inputs_embeds, use_dropout=False)
         shifted_loss = loss(shifted_output, torch.unsqueeze(y, dim=-1))
         derivatives = torch.autograd.grad(
             outputs=shifted_loss,
@@ -104,12 +113,12 @@ def train():
             inputs, labels, attribution_info = data
             has_att_labels, weights, relevance_scores = attribution_info
             inputs, reference_inputs = inputs[:batch_size], inputs[batch_size:]
-            pad_mask = get_pad_mask(inputs)
+            mask = get_mask(inputs, train_set.tokenizer)
             inputs = inputs.to(DEVICE)
             reference_inputs = reference_inputs.to(DEVICE)
             labels = labels[:batch_size]
             labels = labels.to(DEVICE)
-            outputs = model.forward(pad_mask, inputs=inputs, use_dropout=True)
+            outputs = model.forward(mask, inputs=inputs, use_dropout=True)
             correctness_loss = loss(outputs, labels)
             running_correctness_loss += correctness_loss.item()
             correctness_loss.backward()
@@ -119,7 +128,7 @@ def train():
                     if has_att_labels[j]:
                         empty_cache()
                         # Compute prior loss and back-propagate
-                        attributions = expected_gradients(inputs[j], labels[j], reference_inputs, x_mask=pad_mask[j])
+                        attributions = expected_gradients(inputs[j], labels[j], reference_inputs, x_mask=mask[j])
                         attributions = torch.abs(attributions)
                         scores = attributions / torch.sum(attributions, dim=-1)
                         weight_tensor, relevance_tensor = weights[j].to(DEVICE), relevance_scores[j].to(DEVICE)
@@ -170,11 +179,11 @@ def train():
             for i, data in enumerate(dev_loader, 0):
                 empty_cache()
                 inputs, labels, _ = data
-                pad_mask = get_pad_mask(inputs)
+                mask = get_mask(inputs, train_set.tokenizer)
                 inputs = inputs.to(DEVICE)
                 labels = labels.to(DEVICE)
                 all_labels.append(labels)
-                outputs = model.forward(pad_mask, inputs=inputs, use_dropout=False)
+                outputs = model.forward(mask, inputs=inputs, use_dropout=False)
                 all_outputs.append(outputs)
             all_labels = torch.cat(all_labels, dim=0)
             all_outputs = torch.cat(all_outputs, dim=0)
