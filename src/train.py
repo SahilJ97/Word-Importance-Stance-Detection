@@ -4,7 +4,7 @@ from sys import argv
 from src.vast_reader import VastReader
 from src.classifiers import BaselineBert
 from torch.utils.data import DataLoader
-from torch.nn.functional import cross_entropy
+from torch.nn import CrossEntropyLoss
 from torch.optim import Adam
 from sklearn.metrics import f1_score
 from src import visualize
@@ -18,6 +18,8 @@ Key difference from original formulation: separate optimizer step for prior loss
 """
 
 ONE = torch.ones(1)
+CLASS_WEIGHTS = torch.tensor([2.413433908045977, 2.528316086547507, 5.2594911937377695])  # inverse label frequency
+loss = CrossEntropyLoss(weight=CLASS_WEIGHTS)
 
 # Parse arguments
 smoothing, smooth_param, relevance_type, use_prior, batch_size, learn_rate, k, lda, model_name = argv[1:10]
@@ -60,8 +62,7 @@ def expected_gradients(x, y, references, x_mask):
         r_embeds = torch.unsqueeze(r_embeds, dim=0)
         shifted_inputs_embeds = r_embeds + alpha * (x_embeds - r_embeds)
         shifted_output = model.forward(pad_mask, inputs_embeds=shifted_inputs_embeds, use_dropout=False)
-        print(shifted_output.size(), y.size())
-        shifted_loss = cross_entropy(shifted_output, torch.unsqueeze(y, dim=-1))
+        shifted_loss = loss(shifted_output, torch.unsqueeze(y, dim=-1))
         derivatives = torch.autograd.grad(
             outputs=shifted_loss,
             inputs=shifted_inputs_embeds,
@@ -106,7 +107,7 @@ def train():
             labels = labels[:batch_size]
             labels = labels.to(DEVICE)
             outputs = model.forward(pad_mask, inputs=inputs, use_dropout=True)
-            correctness_loss = cross_entropy(outputs, labels)
+            correctness_loss = loss(outputs, labels)
             running_correctness_loss += correctness_loss.item()
             correctness_loss.backward()
 
@@ -174,7 +175,7 @@ def train():
                 all_outputs.append(outputs)
             all_labels = torch.cat(all_labels, dim=0)
             all_outputs = torch.cat(all_outputs, dim=0)
-            correctness_loss = cross_entropy(all_outputs, all_labels)
+            correctness_loss = loss(all_outputs, all_labels)
             _, all_preds = torch.max(all_outputs, dim=-1)
             class_f1 = f1_score(all_labels.tolist(), all_preds.tolist(), labels=[0, 1, 2], average=None)
         print(f"\tLoss: {correctness_loss.item()}")
@@ -186,14 +187,14 @@ if __name__ == "__main__":
     train_set = VastReader(
         "../data/VAST/vast_train.csv",
         "../data/VAST_word_importance/token_appearances.tsv",
-        #exclude_from_main="../data/VAST_word_importance/special_datapoints.txt",
-        #word_importance_csv="../data/VAST_word_importance/processed_annotated.csv",
+        exclude_from_main="../data/VAST_word_importance/special_datapoints.txt",
+        word_importance_csv="../data/VAST_word_importance/processed_annotated.csv",
         smoothing=smoothing,
         smooth_param=smooth_param,
         relevance_type=relevance_type
     )
-    """first_input, first_label, _ = train_set[0]
-    print(train_set.tokenizer.convert_ids_to_tokens(first_input))
+    first_input, first_label, _ = train_set[0]
+    """print(train_set.tokenizer.convert_ids_to_tokens(first_input))
     print(first_label)"""
 
     dev_set = VastReader("../data/VAST/vast_dev.csv")
