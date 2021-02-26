@@ -5,6 +5,12 @@ import tokenizations
 from math import log
 from sys import stderr
 import torch
+from nltk.corpus import stopwords
+import string
+
+sw = stopwords.words("english")
+punc = [c for c in string.punctuation]
+sw_and_punc = sw + punc
 
 
 def contains_alpha(s):
@@ -23,6 +29,12 @@ def crop_or_pad(seq, length, padding_item="[PAD]"):
     return seq
 
 
+def filter_out_sw_punc(seq):
+    if type(seq[0]) == tuple:
+        return [pair for pair in seq if pair[0] not in sw_and_punc]
+    return [word for word in seq if word not in sw_and_punc]
+
+
 class VastReader(Dataset):
     topic_len = 5
     doc_len = 205
@@ -37,6 +49,7 @@ class VastReader(Dataset):
                  smooth_param=.01,
                  relevance_type="binary",
                  tokenizer=BertTokenizer.from_pretrained("bert-base-uncased"),
+                 remove_stopwords_and_punc=True,
     ):
         """
         :param main_csv: Path to data CSV file
@@ -61,6 +74,7 @@ class VastReader(Dataset):
         self.smooth_param = smooth_param
         self.relevance_type = relevance_type
         self.tokenizer = tokenizer
+        self.remove_stopwords_and_punc = remove_stopwords_and_punc
         self.tokenizer.padding_side = "right"
 
         # Count topics (for TF-IDF computations)
@@ -153,8 +167,11 @@ class VastReader(Dataset):
                     continue
                 self.labels.append(int(row["label"]))
                 topic_tokens = self.tokenizer.tokenize("[CLS] " + row["new_topic"])
-                topic_tokens = crop_or_pad(topic_tokens, self.topic_len + 1)
                 doc_tokens = self.tokenizer.tokenize("[SEP] " + row["post"])
+                if self.remove_stopwords_and_punc:
+                    topic_tokens = filter_out_sw_punc(topic_tokens)
+                    doc_tokens = filter_out_sw_punc(doc_tokens)
+                topic_tokens = crop_or_pad(topic_tokens, self.topic_len + 1)
                 doc_tokens = crop_or_pad(doc_tokens, self.doc_len + 1)
                 input_dict = {
                     "input_tokens": topic_tokens + doc_tokens,
@@ -171,8 +188,14 @@ class VastReader(Dataset):
                 for row in reader:
                     self.labels.append(int(row["label"]))
                     topic_tokens = self.tokenizer.tokenize("[CLS] " + row["topic"])
+                    if self.remove_stopwords_and_punc:
+                        topic_tokens = filter_out_sw_punc(topic_tokens)
                     topic_tokens = crop_or_pad(topic_tokens, self.topic_len + 1)
                     orig_word_weight_tuples = eval(row["weights"])
+                    argument = row["argument"]
+                    if self.remove_stopwords_and_punc:
+                        orig_word_weight_tuples = filter_out_sw_punc(orig_word_weight_tuples)
+                        argument = " ".join(filter_out_sw_punc(argument.split(" ")))
                     orig_tokens, orig_weight_mapping = zip(*orig_word_weight_tuples)
                     if self.relevance_type == "tf-idf" or self.smoothing == "tf-idf":
                         tf_idfs = self.tf_idfs(orig_tokens, row["topic"])
@@ -180,7 +203,7 @@ class VastReader(Dataset):
                         tf_idfs = None
                     orig_weight_mapping = self.smooth(orig_weight_mapping, tf_idfs)
                     doc_tokens, weights = self.new_token_mapping(
-                        "[SEP] " + row["argument"],
+                        "[SEP] " + argument,
                         orig_tokens,
                         orig_weight_mapping
                     )
@@ -190,7 +213,7 @@ class VastReader(Dataset):
                     doc_tokens = crop_or_pad(doc_tokens, self.doc_len + 1)
                     relevance_scores = self.relevance_scores(orig_tokens, tf_idfs)
                     _, relevance_scores = self.new_token_mapping(
-                        "[SEP] " + row["argument"],
+                        "[SEP] " + argument,
                         orig_tokens,
                         relevance_scores
                     )
