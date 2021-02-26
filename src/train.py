@@ -58,8 +58,6 @@ def get_mask(inputs, tokenizer):
         for j in range(len(inputs[i])):
             if tokens[j] in make_zero:
                 mask[i][j] = 0
-        print(tokens)
-        print(mask[i])
     return torch.tensor(mask, dtype=torch.float, device=DEVICE)
 
 
