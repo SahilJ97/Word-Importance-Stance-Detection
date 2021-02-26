@@ -193,6 +193,7 @@ def train():
 
 
 if __name__ == "__main__":
+    torch.autograd.set_detect_anomaly(True)  # helps with debugging
     print("Loading data...")
     train_set = VastReader(
         "../data/VAST/vast_train.csv",
