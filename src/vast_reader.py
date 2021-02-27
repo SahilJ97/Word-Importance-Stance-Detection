@@ -159,13 +159,7 @@ class VastReader(Dataset):
                     continue
                 self.labels.append(int(row["label"]))
                 topic_tokens = self.tokenizer.tokenize("[CLS] " + row["new_topic"])
-                #doc_tokens = self.tokenizer.tokenize("[SEP] " + row["post"])  temporarily change!
-                temp_doc_tokens = eval(row["text"])
-                doc_tokens = []
-                for item in temp_doc_tokens:
-                    doc_tokens.extend(item)
-                doc_tokens = "[SEP] " + " ".join(doc_tokens)
-                doc_tokens = self.tokenizer.tokenize(doc_tokens)
+                doc_tokens = self.tokenizer.tokenize("[SEP] " + row["post"])
                 topic_tokens = crop_or_pad(topic_tokens, self.topic_len + 1)
                 doc_tokens = crop_or_pad(doc_tokens, self.doc_len + 1)
                 input_dict = {
