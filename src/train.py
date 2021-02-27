@@ -213,7 +213,7 @@ if __name__ == "__main__":
 
     token_type_ids = [0 for _ in range(train_set.topic_len + 2)] + [1 for _ in range(train_set.doc_len + 1)]
     token_type_ids = [token_type_ids for _ in range(batch_size)]
-    token_type_ids = torch.tensor(token_type_ids, dtype=torch.long)
+    token_type_ids = torch.tensor(token_type_ids, dtype=torch.long, device=DEVICE)
     print(token_type_ids.size(), token_type_ids[0])
 
     dev_set = VastReader("../data/VAST/vast_dev.csv")
