@@ -14,7 +14,7 @@ import string
 
 sw = stopwords.words("english")
 punc = [c for c in string.punctuation]
-make_zero = sw + punc + ["[PAD]"]
+sw_and_punc = sw + punc
 
 DEVICE = "cuda:3" if torch.cuda.is_available() else "cpu"  # use CUDA_VISIBLE_DEVICES=i python3 train.py? causes issue
 NUM_EPOCHS = 20
@@ -23,11 +23,11 @@ NUM_EPOCHS = 20
 Key difference from original formulation: separate optimizer step for prior loss.
 """
 
-ONE = torch.ones(1)
-CLASS_WEIGHTS = torch.tensor(
+"""CLASS_WEIGHTS = torch.tensor(
     [2.413433908045977, 2.528316086547507, 5.2594911937377695],
     device=DEVICE
-)  # inverse label frequency
+)  # inverse label frequency"""
+CLASS_WEIGHTS = None
 loss = CrossEntropyLoss(weight=CLASS_WEIGHTS)
 
 # Parse arguments
@@ -56,7 +56,7 @@ def get_mask(inputs, tokenizer):
     for i in range(len(inputs)):
         tokens = tokenizer.convert_ids_to_tokens(inputs[i])
         for j in range(len(inputs[i])):
-            if tokens[j] in make_zero:
+            if tokens[j] == "[PAD]" or (j > model.topic_len+1 and tokens[j] in sw_and_punc):
                 mask[i][j] = 0
     return torch.tensor(mask, dtype=torch.float, device=DEVICE)
 
@@ -166,7 +166,7 @@ def train():
                     print(f"\tRunning prior loss: {running_prior_loss/num_prior_losses}")
 
         # Save
-        #print("Saving model...")  # Only if loss decreased!!!
+        #print("Saving model...")
         #torch.save(model, f"../output/{model_name}.pt")
 
         # Validate
@@ -205,8 +205,8 @@ if __name__ == "__main__":
         relevance_type=relevance_type
     )
     first_input, first_label, _ = train_set[0]
-    """print(train_set.tokenizer.convert_ids_to_tokens(first_input))
-    print(first_label)"""
+    print(train_set.tokenizer.convert_ids_to_tokens(first_input))
+    print(first_label)
 
     dev_set = VastReader("../data/VAST/vast_dev.csv")
     if use_prior:
