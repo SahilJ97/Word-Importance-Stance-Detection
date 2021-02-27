@@ -30,9 +30,9 @@ def crop_or_pad(seq, length, padding_item="[PAD]"):
 
 
 class VastReader(Dataset):
-    topic_len = 5
+    topic_len = 15
     doc_len = 205
-    max_len = topic_len + doc_len + 2
+    max_len = topic_len + doc_len + 3
 
     def __init__(self,
                  main_csv,
@@ -159,9 +159,9 @@ class VastReader(Dataset):
                     continue
                 self.labels.append(int(row["label"]))
                 topic_tokens = self.tokenizer.tokenize("[CLS] " + row["new_topic"])
-                doc_tokens = self.tokenizer.tokenize("[SEP] " + row["post"])
+                doc_tokens = self.tokenizer.tokenize("[SEP] " + row["post"] + " [SEP]")
                 topic_tokens = crop_or_pad(topic_tokens, self.topic_len + 1)
-                doc_tokens = crop_or_pad(doc_tokens, self.doc_len + 1)
+                doc_tokens = crop_or_pad(doc_tokens, self.doc_len + 2)
                 input_dict = {
                     "input_tokens": topic_tokens + doc_tokens,
                     "weights": None,
@@ -187,21 +187,21 @@ class VastReader(Dataset):
                         tf_idfs = None
                     orig_weight_mapping = self.smooth(orig_weight_mapping, tf_idfs)
                     doc_tokens, weights = self.new_token_mapping(
-                        "[SEP] " + argument,
+                        "[SEP] " + argument + " [SEP]",
                         orig_tokens,
                         orig_weight_mapping
                     )
-                    weights = crop_or_pad(weights, self.doc_len + 1, padding_item=0.)
+                    weights = crop_or_pad(weights, self.doc_len + 2, padding_item=0.)
                     weight_sum = sum(weights)
                     weights = [w / weight_sum for w in weights]  # re-normalize (after potentially cropping)
-                    doc_tokens = crop_or_pad(doc_tokens, self.doc_len + 1)
+                    doc_tokens = crop_or_pad(doc_tokens, self.doc_len + 2)
                     relevance_scores = self.relevance_scores(orig_tokens, tf_idfs)
                     _, relevance_scores = self.new_token_mapping(
-                        "[SEP] " + argument,
+                        "[SEP] " + argument + " [SEP]",
                         orig_tokens,
                         relevance_scores
                     )
-                    relevance_scores = crop_or_pad(relevance_scores, self.doc_len + 1, padding_item=0.)
+                    relevance_scores = crop_or_pad(relevance_scores, self.doc_len + 2, padding_item=0.)
                     input_dict = {
                         "input_tokens": topic_tokens + doc_tokens,
                         "weights": weights,

@@ -30,16 +30,24 @@ class BaselineBert(VastClassifier, ABC):
         self.output_layer.to(*args, **kwargs)
         return super().to(*args, **kwargs)
 
-    def forward(self, mask, inputs=None, inputs_embeds=None, use_dropout=True):
+    def forward(self, mask, inputs=None, inputs_embeds=None, use_dropout=True, token_type_ids=None):
         if inputs is None and inputs_embeds is None:
             raise ValueError("Either inputs or inputs_embeds must be provided")
         if inputs is not None:
             inputs_embeds = self.get_inputs_embeds(inputs)
         if self.fix_bert:
             with torch.no_grad():  # leave BERT fixed
-                last_hidden_state, pooler_outputs = self.bert_model.forward(inputs_embeds=inputs_embeds, attention_mask=mask)
+                last_hidden_state, pooler_outputs = self.bert_model.forward(
+                    inputs_embeds=inputs_embeds,
+                    attention_mask=mask,
+                    token_type_ids=token_type_ids
+                )
         else:
-            last_hidden_state, pooler_outputs = self.bert_model.forward(inputs_embeds=inputs_embeds, attention_mask=mask)
+            last_hidden_state, pooler_outputs = self.bert_model.forward(
+                inputs_embeds=inputs_embeds,
+                attention_mask=mask,
+                token_type_ids=token_type_ids
+            )
         topic_token_counts = torch.sum(mask[:, 1:1 + self.topic_len], dim=-1)  # ignore first token ([CLS])
         doc_token_counts = torch.sum(mask[:, 2 + self.topic_len:], dim=-1)  # ignore first token after topic ([SEP])
         mask = torch.unsqueeze(mask, dim=-1)

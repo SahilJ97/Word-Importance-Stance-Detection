@@ -72,7 +72,12 @@ def expected_gradients(x, y, references, x_mask):
     for r_embeds, alpha in zip(references_embeds, alphas):
         r_embeds = torch.unsqueeze(r_embeds, dim=0)
         shifted_inputs_embeds = r_embeds + alpha * (x_embeds - r_embeds)
-        shifted_output = model.forward(mask, inputs_embeds=shifted_inputs_embeds, use_dropout=False)
+        shifted_output = model.forward(
+            mask,
+            inputs_embeds=shifted_inputs_embeds,
+            use_dropout=False,
+            token_type_ids=token_type_ids
+        )
         shifted_loss = loss(shifted_output, torch.unsqueeze(y, dim=-1))
         derivatives = torch.autograd.grad(
             outputs=shifted_loss,
@@ -117,7 +122,7 @@ def train():
             reference_inputs = reference_inputs.to(DEVICE)
             labels = labels[:batch_size]
             labels = labels.to(DEVICE)
-            outputs = model.forward(mask, inputs=inputs, use_dropout=True)
+            outputs = model.forward(mask, inputs=inputs, use_dropout=True, token_type_ids=token_type_ids)
             correctness_loss = loss(outputs, labels)
             running_correctness_loss += correctness_loss.item()
             correctness_loss.backward()
@@ -182,7 +187,7 @@ def train():
                 inputs = inputs.to(DEVICE)
                 labels = labels.to(DEVICE)
                 all_labels.append(labels)
-                outputs = model.forward(mask, inputs=inputs, use_dropout=False)
+                outputs = model.forward(mask, inputs=inputs, use_dropout=False, token_type_ids=token_type_ids)
                 all_outputs.append(outputs)
             all_labels = torch.cat(all_labels, dim=0)
             all_outputs = torch.cat(all_outputs, dim=0)
@@ -206,14 +211,23 @@ if __name__ == "__main__":
         relevance_type=relevance_type
     )
 
+    token_type_ids = [0 for _ in range(train_set.topic_len + 2)] + [1 for _ in range(train_set.doc_len + 1)]
+    token_type_ids = [token_type_ids for _ in range(batch_size)]
+    token_type_ids = torch.tensor(token_type_ids, dtype=torch.long)
+    print(token_type_ids.size(), token_type_ids[0])
+
     dev_set = VastReader("../data/VAST/vast_dev.csv")
-    first_input, first_label, _ = dev_set[0]
+
+    first_input, first_label, _ = train_set[0]
     print(train_set.tokenizer.convert_ids_to_tokens(first_input))
     print(first_label)
+
     if use_prior:
         explainer = AttributionPriorExplainer(train_set, batch_size=batch_size, k=k)
+
     print("Loading model...")
     model = BaselineBert(topic_len=train_set.topic_len, fix_bert=True)  # cannot fix BERT if using attribution prior
     model.to(DEVICE)
     optimizer = Adam(model.parameters(), lr=learn_rate)
+
     train()
