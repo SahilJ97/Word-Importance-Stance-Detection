@@ -37,9 +37,9 @@ class BaselineBert(VastClassifier, ABC):
             inputs_embeds = self.get_inputs_embeds(inputs)
         if self.fix_bert:
             with torch.no_grad():  # leave BERT fixed
-                last_hidden_state, pooler_outputs = self.bert_model.forward(inputs_embeds=inputs_embeds)
+                last_hidden_state, pooler_outputs = self.bert_model.forward(inputs_embeds=inputs_embeds, attention_mask=mask)
         else:
-            last_hidden_state, pooler_outputs = self.bert_model.forward(inputs_embeds=inputs_embeds)
+            last_hidden_state, pooler_outputs = self.bert_model.forward(inputs_embeds=inputs_embeds, attention_mask=mask)
         topic_token_counts = torch.sum(mask[:, 1:1 + self.topic_len], dim=-1)  # ignore first token ([CLS])
         doc_token_counts = torch.sum(mask[:, 2 + self.topic_len:], dim=-1)  # ignore first token after topic ([SEP])
         mask = torch.unsqueeze(mask, dim=-1)
