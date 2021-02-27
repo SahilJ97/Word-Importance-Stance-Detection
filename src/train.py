@@ -76,7 +76,7 @@ def expected_gradients(x, y, references, x_mask):
             mask,
             inputs_embeds=shifted_inputs_embeds,
             use_dropout=False,
-            token_type_ids=token_type_ids
+            token_type_ids=token_type_ids[0]
         )
         shifted_loss = loss(shifted_output, torch.unsqueeze(y, dim=-1))
         derivatives = torch.autograd.grad(
@@ -122,7 +122,7 @@ def train():
             reference_inputs = reference_inputs.to(DEVICE)
             labels = labels[:batch_size]
             labels = labels.to(DEVICE)
-            outputs = model.forward(mask, inputs=inputs, use_dropout=True, token_type_ids=token_type_ids)
+            outputs = model.forward(mask, inputs=inputs, use_dropout=True, token_type_ids=token_type_ids[:len(inputs)])
             correctness_loss = loss(outputs, labels)
             running_correctness_loss += correctness_loss.item()
             correctness_loss.backward()
@@ -187,7 +187,12 @@ def train():
                 inputs = inputs.to(DEVICE)
                 labels = labels.to(DEVICE)
                 all_labels.append(labels)
-                outputs = model.forward(mask, inputs=inputs, use_dropout=False, token_type_ids=token_type_ids)
+                outputs = model.forward(
+                    mask,
+                    inputs=inputs,
+                    use_dropout=False,
+                    token_type_ids=token_type_ids[:len(inputs)]
+                )
                 all_outputs.append(outputs)
             all_labels = torch.cat(all_labels, dim=0)
             all_outputs = torch.cat(all_outputs, dim=0)
