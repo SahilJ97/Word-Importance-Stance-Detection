@@ -50,7 +50,7 @@ def empty_cache():
 
 
 def get_mask(inputs, tokenizer):
-    """Used to zero embeddings corresponding to [PAD], punctuation, and stopwords before pooling BERT embeddings"""
+    """Used to zero embeddings corresponding to [PAD] tokens before pooling BERT embeddings"""
     inputs = inputs.tolist()
     mask = np.ones_like(inputs)
     for i in range(len(inputs)):
