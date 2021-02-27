@@ -54,9 +54,10 @@ def get_mask(inputs, tokenizer):
     inputs = inputs.tolist()
     mask = np.ones_like(inputs)
     for i in range(len(inputs)):
-        tokens = tokenizer.convert_ids_to_tokens(inputs[i])
+        #tokens = tokenizer.convert_ids_to_tokens(inputs[i])
         for j in range(len(inputs[i])):
-            if tokens[j] == "[PAD]" or (j > model.topic_len+1 and tokens[j] in sw_and_punc):
+            #if tokens[j] == "[PAD]" or (j > model.topic_len+1 and tokens[j] in sw_and_punc):
+            if inputs[i][j] == 0:
                 mask[i][j] = 0
     return torch.tensor(mask, dtype=torch.float, device=DEVICE)
 
@@ -204,11 +205,11 @@ if __name__ == "__main__":
         smooth_param=smooth_param,
         relevance_type=relevance_type
     )
-    first_input, first_label, _ = train_set[0]
-    print(train_set.tokenizer.convert_ids_to_tokens(first_input))
-    print(first_label)
 
     dev_set = VastReader("../data/VAST/vast_dev.csv")
+    first_input, first_label, _ = dev_set[0]
+    print(train_set.tokenizer.convert_ids_to_tokens(first_input))
+    print(first_label)
     if use_prior:
         explainer = AttributionPriorExplainer(train_set, batch_size=batch_size, k=k)
     print("Loading model...")
