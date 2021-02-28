@@ -23,11 +23,11 @@ NUM_EPOCHS = 20
 Key difference from original formulation: separate optimizer step for prior loss.
 """
 
-CLASS_WEIGHTS = torch.tensor(
+"""CLASS_WEIGHTS = torch.tensor(
     [2.413433908045977, 2.528316086547507, 5.2594911937377695],
     device=DEVICE
-)  # inverse label frequency
-#CLASS_WEIGHTS = None
+)  # inverse label frequency"""
+CLASS_WEIGHTS = None
 loss = CrossEntropyLoss(weight=CLASS_WEIGHTS)
 
 # Parse arguments
@@ -235,7 +235,7 @@ if __name__ == "__main__":
         explainer = AttributionPriorExplainer(train_set, batch_size=batch_size, k=k)
 
     print("Loading model...")
-    model = BaselineBert(topic_len=train_set.topic_len, fix_bert=True)  # cannot fix BERT if using attribution prior
+    model = BaselineBert(topic_len=train_set.topic_len, fix_bert=False)  # cannot fix BERT if using attribution prior
     model.to(DEVICE)
     optimizer = Adam(model.parameters(), lr=learn_rate)
 
