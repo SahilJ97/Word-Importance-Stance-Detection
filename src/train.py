@@ -107,7 +107,7 @@ def train():
             with open(html_file, "w") as out_file:
                 out_file.write(visualize.header)
 
-        # Train
+        """# Train
         print(f"\nBeginning epoch {epoch}...")
         running_correctness_loss, running_prior_loss = 0., 0.
         num_prior_losses = 0
@@ -173,7 +173,7 @@ def train():
 
         # Save
         #print("Saving model...")
-        #torch.save(model, f"../output/{model_name}.pt")
+        #torch.save(model, f"../output/{model_name}.pt")"""
 
         # Validate
         print("Validating...")
@@ -194,12 +194,16 @@ def train():
                     token_type_ids=token_type_ids[:len(inputs)]
                 )
                 all_outputs.append(outputs)
-                break  # TEMPORARY! seeing if concatenation is the issue
+                if i == 2:
+                    break  # TEMPORARY! seeing if concatenation is the issue
             all_labels = torch.cat(all_labels, dim=0)
             all_outputs = torch.cat(all_outputs, dim=0)
+            print(all_labels)
             correctness_loss = loss(all_outputs, all_labels)
             _, all_preds = torch.max(all_outputs, dim=-1)
+            print(all_preds)
             class_f1 = f1_score(all_labels.tolist(), all_preds.tolist(), labels=[0, 1, 2], average=None)
+            print(class_f1)
         print(f"\tLoss: {correctness_loss.item()}")
         print(f"\tF1: {class_f1[0], class_f1[1], np.sum(class_f1)/3}")
 
@@ -220,13 +224,12 @@ if __name__ == "__main__":
     token_type_ids = [0 for _ in range(train_set.topic_len + 2)] + [1 for _ in range(train_set.doc_len + 1)]
     token_type_ids = [token_type_ids for _ in range(batch_size)]
     token_type_ids = torch.tensor(token_type_ids, dtype=torch.long, device=DEVICE)
-    print(token_type_ids.size(), token_type_ids[0])
 
     dev_set = VastReader("../data/VAST/vast_dev.csv")
 
     first_input, first_label, _ = train_set[0]
-    print(train_set.tokenizer.convert_ids_to_tokens(first_input))
-    print(first_label)
+    #print(train_set.tokenizer.convert_ids_to_tokens(first_input))
+    #print(first_label)
 
     if use_prior:
         explainer = AttributionPriorExplainer(train_set, batch_size=batch_size, k=k)
