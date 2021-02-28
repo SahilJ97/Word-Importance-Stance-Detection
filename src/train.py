@@ -107,7 +107,7 @@ def train():
             with open(html_file, "w") as out_file:
                 out_file.write(visualize.header)
 
-        """# Train
+        # Train
         print(f"\nBeginning epoch {epoch}...")
         running_correctness_loss, running_prior_loss = 0., 0.
         num_prior_losses = 0
@@ -173,7 +173,7 @@ def train():
 
         # Save
         #print("Saving model...")
-        #torch.save(model, f"../output/{model_name}.pt")"""
+        #torch.save(model, f"../output/{model_name}.pt")
 
         # Validate
         print("Validating...")
