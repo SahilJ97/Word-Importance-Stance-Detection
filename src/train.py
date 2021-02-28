@@ -194,6 +194,7 @@ def train():
                     token_type_ids=token_type_ids[:len(inputs)]
                 )
                 all_outputs.append(outputs)
+                break  # TEMPORARY! seeing if concatenation is the issue
             all_labels = torch.cat(all_labels, dim=0)
             all_outputs = torch.cat(all_outputs, dim=0)
             correctness_loss = loss(all_outputs, all_labels)
