@@ -23,11 +23,11 @@ NUM_EPOCHS = 20
 Key difference from original formulation: separate optimizer step for prior loss.
 """
 
-"""CLASS_WEIGHTS = torch.tensor(
+CLASS_WEIGHTS = torch.tensor(
     [2.413433908045977, 2.528316086547507, 5.2594911937377695],
     device=DEVICE
-)  # inverse label frequency"""
-CLASS_WEIGHTS = None
+)  # inverse label frequency
+#CLASS_WEIGHTS = None
 loss = CrossEntropyLoss(weight=CLASS_WEIGHTS)
 
 # Parse arguments
