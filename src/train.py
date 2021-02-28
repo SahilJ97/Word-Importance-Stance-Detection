@@ -98,7 +98,7 @@ def train():
     if use_prior:
         train_loader_batch_size += k  # k examples are used to compute attributions
     train_loader = DataLoader(train_set, train_loader_batch_size, shuffle=True)
-    dev_loader = DataLoader(dev_set, batch_size, shuffle=False)
+    dev_loader = DataLoader(dev_set, batch_size, shuffle=True)
     for epoch in range(NUM_EPOCHS):
 
         # Prepare attribution visualization file
