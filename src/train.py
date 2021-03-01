@@ -236,7 +236,7 @@ if __name__ == "__main__":
         explainer = AttributionPriorExplainer(train_set, batch_size=batch_size, k=k)
 
     print("Loading model...")
-    model = BaselineBert(topic_len=train_set.topic_len, fix_bert=False)  # cannot fix BERT if using attribution prior
+    model = BaselineBert(topic_len=train_set.topic_len, fix_bert=True)  # cannot fix BERT if using attribution prior
     model.to(DEVICE)
     optimizer = Adam(model.parameters(), lr=learn_rate)
 
