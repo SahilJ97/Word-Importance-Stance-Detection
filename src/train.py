@@ -212,7 +212,8 @@ if __name__ == "__main__":
     torch.autograd.set_detect_anomaly(True)  # helps with debugging
     print("Loading data...")
     train_set = VastReader(
-        "../../zero-shot-stance//data/VAST/vast_train.csv",
+        #"../data/VAST/vast_train.csv",
+        "../../zero-shot-stance/data/VAST/vast_train.csv",  # temp!
         "../data/VAST_word_importance/token_appearances.tsv",
         #exclude_from_main="../data/VAST_word_importance/special_datapoints.txt",
         #word_importance_csv="../data/VAST_word_importance/processed_annotated.csv",
