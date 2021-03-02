@@ -21,6 +21,7 @@ def contains_alpha(s):
 
 
 def crop_or_pad(seq, length, padding_item="[PAD]"):
+    # Cropping/padding occurs on right hand side
     seq = list(seq)
     if len(seq) > length:
         seq = seq[:length]
@@ -30,8 +31,8 @@ def crop_or_pad(seq, length, padding_item="[PAD]"):
 
 
 class VastReader(Dataset):
-    topic_len = 15
     doc_len = 205
+    topic_len = 15
     max_len = topic_len + doc_len + 3
 
     def __init__(self,
@@ -152,18 +153,22 @@ class VastReader(Dataset):
         return new_values
 
     def load_data(self):
+        CLS_ID = self.tokenizer.tokenize("[CLS]")
+        SEP_ID = self.tokenizer.tokenize("[SEP]")
         with open(self.main_csv, "r") as f:
             reader = DictReader(f)
             for row in reader:
                 if row["new_id"] in self.exclude_from_main:
                     continue
                 self.labels.append(int(row["label"]))
-                topic_tokens = self.tokenizer.tokenize("[CLS] " + row["new_topic"])
-                doc_tokens = self.tokenizer.tokenize("[SEP] " + row["post"] + " [SEP]")
-                topic_tokens = crop_or_pad(topic_tokens, self.topic_len + 1)
-                doc_tokens = crop_or_pad(doc_tokens, self.doc_len + 2)
+                doc_tokens = self.tokenizer.tokenize(row["post"])
+                doc_tokens = crop_or_pad(doc_tokens, self.doc_len)
+                doc_tokens = CLS_ID + doc_tokens + SEP_ID
+                topic_tokens = self.tokenizer.tokenize(row["new_topic"])
+                topic_tokens = crop_or_pad(topic_tokens, self.topic_len)
+                topic_tokens = topic_tokens + SEP_ID
                 input_dict = {
-                    "input_tokens": topic_tokens + doc_tokens,
+                    "input_tokens": doc_tokens + topic_tokens,
                     "weights": None,
                     "relevance_scores": None,
                 }
@@ -176,8 +181,9 @@ class VastReader(Dataset):
                 reader = DictReader(f)
                 for row in reader:
                     self.labels.append(int(row["label"]))
-                    topic_tokens = self.tokenizer.tokenize("[CLS] " + row["topic"])
-                    topic_tokens = crop_or_pad(topic_tokens, self.topic_len + 1)
+                    topic_tokens = self.tokenizer.tokenize(row["topic"])
+                    topic_tokens = crop_or_pad(topic_tokens, self.topic_len)
+                    topic_tokens = topic_tokens + SEP_ID
                     orig_word_weight_tuples = eval(row["weights"])
                     argument = row["argument"]
                     orig_tokens, orig_weight_mapping = zip(*orig_word_weight_tuples)
@@ -186,24 +192,23 @@ class VastReader(Dataset):
                     else:
                         tf_idfs = None
                     orig_weight_mapping = self.smooth(orig_weight_mapping, tf_idfs)
-                    doc_tokens, weights = self.new_token_mapping(
-                        "[SEP] " + argument + " [SEP]",
-                        orig_tokens,
-                        orig_weight_mapping
-                    )
-                    weights = crop_or_pad(weights, self.doc_len + 2, padding_item=0.)
+                    doc_tokens, weights = self.new_token_mapping(argument, orig_tokens, orig_weight_mapping)
+                    doc_tokens = crop_or_pad(doc_tokens, self.doc_len)
+                    weights = crop_or_pad(weights, self.doc_len, padding_item=0.)
+                    doc_tokens = CLS_ID + doc_tokens + SEP_ID
+                    weights = [0] + weights + [0]
                     weight_sum = sum(weights)
                     weights = [w / weight_sum for w in weights]  # re-normalize (after potentially cropping)
-                    doc_tokens = crop_or_pad(doc_tokens, self.doc_len + 2)
                     relevance_scores = self.relevance_scores(orig_tokens, tf_idfs)
                     _, relevance_scores = self.new_token_mapping(
-                        "[SEP] " + argument + " [SEP]",
+                        argument,
                         orig_tokens,
                         relevance_scores
                     )
-                    relevance_scores = crop_or_pad(relevance_scores, self.doc_len + 2, padding_item=0.)
+                    relevance_scores = crop_or_pad(relevance_scores, self.doc_len, padding_item=0.)
+                    relevance_scores = [0] + relevance_scores + [0]
                     input_dict = {
-                        "input_tokens": topic_tokens + doc_tokens,
+                        "input_tokens": doc_tokens + topic_tokens,
                         "weights": weights,
                         "relevance_scores": relevance_scores,
                     }
@@ -215,8 +220,8 @@ class VastReader(Dataset):
         ip = self.inputs[idx]
         if ip["weights"]:
             has_attribution_label = True
-            weights = [0. for i in range(1 + self.topic_len)] + ip["weights"]
-            relevance_scores = [0. for i in range(1 + self.topic_len)] + ip["relevance_scores"]
+            weights = ip["weights"] + [0. for i in range(1 + self.topic_len)]
+            relevance_scores = ip["relevance_scores"] + [0. for i in range(1 + self.topic_len)]
         else:
             has_attribution_label = False
             weights = [0. for _ in range(self.max_len)]

@@ -12,9 +12,9 @@ class VastClassifier(nn.Module, ABC):  # attribution usage occurs in loss functi
 
 
 class BaselineBert(VastClassifier, ABC):
-    def __init__(self, pretrained_model="bert-base-uncased", topic_len=5, fix_bert=True):
+    def __init__(self, pretrained_model="bert-base-uncased", doc_len=205, fix_bert=True):
         super(BaselineBert, self).__init__()
-        self.topic_len = topic_len
+        self.doc_len = doc_len
         self.fix_bert = fix_bert
         self.bert_model = BertModel.from_pretrained(
             pretrained_model,
@@ -31,6 +31,7 @@ class BaselineBert(VastClassifier, ABC):
         return super().to(*args, **kwargs)
 
     def forward(self, mask, inputs=None, inputs_embeds=None, use_dropout=True, token_type_ids=None):
+        # inputs/inputs_embeds are organized as "[CLS] document [SEP] topic [SEP]"
         if inputs is None and inputs_embeds is None:
             raise ValueError("Either inputs or inputs_embeds must be provided")
         if inputs is not None:
@@ -48,15 +49,15 @@ class BaselineBert(VastClassifier, ABC):
                 attention_mask=mask,
                 token_type_ids=token_type_ids
             )
-        topic_token_counts = torch.sum(mask[:, 1:1 + self.topic_len], dim=-1)  # ignore first token ([CLS])
-        doc_token_counts = torch.sum(mask[:, 2 + self.topic_len:], dim=-1)  # ignore first token after topic ([SEP])
+        doc_token_counts = torch.sum(mask[:, 1:self.doc_len + 1:], dim=-1)
+        topic_token_counts = torch.sum(mask[:, self.doc_len + 2:-1], dim=-1)
         mask = torch.unsqueeze(mask, dim=-1)
         last_hidden_state = mask * last_hidden_state
-        topic_embeds = last_hidden_state[:, 1:1+self.topic_len, :]
-        doc_embeds = last_hidden_state[:, 2+self.topic_len:, :]
-        topic = torch.sum(topic_embeds, dim=1) / topic_token_counts[:, None]  # avg of non-zeroed topic tokens
+        doc_embeds = last_hidden_state[:, 1:self.doc_len + 1:]
+        topic_embeds = last_hidden_state[:, self.doc_len + 2:-1]
         doc = torch.sum(doc_embeds, dim=1) / doc_token_counts[:, None]  # same idea for document embeddings
-        both_embeds = torch.cat([topic, doc], dim=-1)
+        topic = torch.sum(topic_embeds, dim=1) / topic_token_counts[:, None]  # avg of non-zeroed topic tokens
+        both_embeds = torch.cat([doc, topic], dim=-1)
         if use_dropout:
             both_embeds = self.dropout(both_embeds)
         hl = self.hidden_layer(both_embeds)
