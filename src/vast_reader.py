@@ -161,10 +161,12 @@ class VastReader(Dataset):
                 if row["new_id"] in self.exclude_from_main:
                     continue
                 self.labels.append(int(row["label"]))
-                doc_tokens = self.tokenizer.tokenize(row["post"])
+                #doc_tokens = self.tokenizer.tokenize(row["post"])
+                doc_tokens = self.tokenizer.tokenize(" ".join(eval(row["text_s"])))  # temp!
                 doc_tokens = crop_or_pad(doc_tokens, self.doc_len)
                 doc_tokens = CLS_ID + doc_tokens + SEP_ID
-                topic_tokens = self.tokenizer.tokenize(row["new_topic"])
+                #topic_tokens = self.tokenizer.tokenize(row["new_topic"])
+                topic_tokens = self.tokenizer.tokenize(" ".join(eval(row["topic_str"])))  # temp!
                 topic_tokens = crop_or_pad(topic_tokens, self.topic_len)
                 topic_tokens = topic_tokens + SEP_ID
                 input_dict = {
