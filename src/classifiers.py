@@ -21,7 +21,7 @@ class BaselineBert(VastClassifier, ABC):
             num_labels=self.num_labels,
         )
         self.dropout = nn.Dropout(p=.2046)
-        self.hidden_layer = torch.nn.Linear(768*2, 283)  # bias=False?
+        self.hidden_layer = torch.nn.Linear(768*2, 283, bias=False)
         self.output_layer = torch.nn.Linear(283, 3)
 
     def to(self, *args, **kwargs):
@@ -63,8 +63,7 @@ class BaselineBert(VastClassifier, ABC):
         hl = self.hidden_layer(both_embeds)
         hl = torch.nn.functional.tanh(hl)
         ol = self.output_layer(hl)
-        #probs = torch.nn.functional.softmax(ol, dim=-1)  # CrossEntropyLoss applies softmax, so skip here
-        return ol  # everything here looks ok, so why is performance not up to standards?
+        return ol
 
     def get_inputs_embeds(self, inputs):
         inputs = inputs.long()

@@ -17,12 +17,8 @@ punc = [c for c in string.punctuation]
 sw_and_punc = sw + punc
 
 DEVICE = "cuda:3" if torch.cuda.is_available() else "cpu"  # use CUDA_VISIBLE_DEVICES=i python3 train.py? causes issue
+SEED = 0
 NUM_EPOCHS = 20
-
-"""
-Key difference from original formulation: separate optimizer step for prior loss.
-"""
-
 """CLASS_WEIGHTS = torch.tensor(
     [2.413433908045977, 2.528316086547507, 5.2594911937377695],
     device=DEVICE
@@ -208,6 +204,9 @@ def train():
 
 if __name__ == "__main__":
     torch.autograd.set_detect_anomaly(True)  # helps with debugging
+    torch.manual_seed(SEED)
+    torch.cuda.manual_seed_all(SEED)
+
     print("Loading data...")
     train_set = VastReader(
         #"../data/VAST/vast_train.csv",
