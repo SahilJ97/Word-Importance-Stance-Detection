@@ -21,8 +21,8 @@ class BaselineBert(VastClassifier, ABC):
             num_labels=self.num_labels,
         )
         self.dropout = nn.Dropout(p=.2046)
-        self.hidden_layer = torch.nn.Linear(768*2, 283, bias=False)
-        self.output_layer = torch.nn.Linear(283, 3)
+        self.hidden_layer = torch.nn.Linear(768*2, 566, bias=False)  # try: 283, 566,
+        self.output_layer = torch.nn.Linear(566, 3)
 
     def to(self, *args, **kwargs):
         self.bert_model = self.bert_model.to(*args, **kwargs)
