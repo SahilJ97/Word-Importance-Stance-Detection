@@ -19,11 +19,11 @@ sw_and_punc = sw + punc
 DEVICE = "cuda:3" if torch.cuda.is_available() else "cpu"  # use CUDA_VISIBLE_DEVICES=i python3 train.py? causes issue
 SEED = 0
 NUM_EPOCHS = 20
-CLASS_WEIGHTS = torch.tensor(
+"""CLASS_WEIGHTS = torch.tensor(
     [2.413433908045977, 2.528316086547507, 5.2594911937377695],
     device=DEVICE
 )  # inverse label frequency"""
-#CLASS_WEIGHTS = None
+CLASS_WEIGHTS = None
 loss = CrossEntropyLoss(weight=CLASS_WEIGHTS)
 
 # Parse arguments
@@ -45,7 +45,7 @@ def empty_cache():
             torch.cuda.empty_cache()
 
 
-def get_mask(inputs, tokenizer):
+def get_pad_mask(inputs, tokenizer):
     """Used to zero embeddings corresponding to [PAD] tokens before pooling BERT embeddings"""
     inputs = inputs.tolist()
     mask = np.ones_like(inputs)
@@ -58,10 +58,11 @@ def get_mask(inputs, tokenizer):
     return torch.tensor(mask, dtype=torch.float, device=DEVICE)
 
 
-def expected_gradients(x, y, references, x_mask):
+def expected_gradients(x, y, references, x_pad_mask, doc_stopword_mask):
     input_length = len(x)
     x_embeds = model.get_inputs_embeds(torch.unsqueeze(x, dim=0))
-    mask = torch.unsqueeze(x_mask, dim=0)
+    x_pad_mask = torch.unsqueeze(x_pad_mask, dim=0)
+    doc_stopword_mask = torch.unsqueeze(doc_stopword_mask, dim=0)
     references_embeds = model.get_inputs_embeds(references)
     alphas = torch.rand(len(references), device=DEVICE)
     attributions = torch.zeros((input_length,), device=DEVICE)
@@ -69,7 +70,8 @@ def expected_gradients(x, y, references, x_mask):
         r_embeds = torch.unsqueeze(r_embeds, dim=0)
         shifted_inputs_embeds = r_embeds + alpha * (x_embeds - r_embeds)
         shifted_output = model.forward(
-            mask,
+            x_pad_mask,
+            doc_stopword_mask,
             inputs_embeds=shifted_inputs_embeds,
             use_dropout=False,
             token_type_ids=token_type_ids[0]
@@ -110,15 +112,21 @@ def train():
         for i, data in enumerate(train_loader, 0):
             optimizer.zero_grad()
             empty_cache()
-            inputs, labels, attribution_info = data
+            inputs, labels, doc_stopword_mask, attribution_info = data
             has_att_labels, weights, relevance_scores = attribution_info
             inputs, reference_inputs = inputs[:batch_size], inputs[batch_size:]
-            mask = get_mask(inputs, train_set.tokenizer)
+            pad_mask = get_pad_mask(inputs, train_set.tokenizer)
             inputs = inputs.to(DEVICE)
             reference_inputs = reference_inputs.to(DEVICE)
             labels = labels[:batch_size]
             labels = labels.to(DEVICE)
-            outputs = model.forward(mask, inputs=inputs, use_dropout=True, token_type_ids=token_type_ids[:len(inputs)])
+            outputs = model.forward(
+                pad_mask,
+                doc_stopword_mask,
+                inputs=inputs,
+                use_dropout=True,
+                token_type_ids=token_type_ids[:len(inputs)]
+            )
             correctness_loss = loss(outputs, labels)
             running_correctness_loss += correctness_loss.item()
             correctness_loss.backward()
@@ -128,7 +136,13 @@ def train():
                     if has_att_labels[j]:
                         empty_cache()
                         # Compute prior loss and back-propagate
-                        attributions = expected_gradients(inputs[j], labels[j], reference_inputs, x_mask=mask[j])
+                        attributions = expected_gradients(
+                            inputs[j],
+                            labels[j],
+                            reference_inputs,
+                            x_pad_mask=pad_mask[j],
+                            doc_stopword_mask=doc_stopword_mask[j]
+                        )
                         attributions = torch.abs(attributions)
                         scores = attributions / torch.sum(attributions, dim=-1)
                         weight_tensor, relevance_tensor = weights[j].to(DEVICE), relevance_scores[j].to(DEVICE)
@@ -178,13 +192,14 @@ def train():
             all_outputs = []
             for i, data in enumerate(dev_loader, 0):
                 empty_cache()
-                inputs, labels, _ = data
-                mask = get_mask(inputs, train_set.tokenizer)
+                inputs, labels, doc_stopword_mask, _ = data
+                pad_mask = get_pad_mask(inputs, train_set.tokenizer)
                 inputs = inputs.to(DEVICE)
                 labels = labels.to(DEVICE)
                 all_labels.append(labels)
                 outputs = model.forward(
-                    mask,
+                    pad_mask,
+                    doc_stopword_mask,
                     inputs=inputs,
                     use_dropout=False,
                     token_type_ids=token_type_ids[:len(inputs)]
@@ -225,9 +240,10 @@ if __name__ == "__main__":
 
     dev_set = VastReader("../data/VAST/vast_dev.csv")
 
-    first_input, first_label, _ = train_set[0]
+    first_input, first_label, first_doc_stopword_mask, _ = train_set[0]
     print(train_set.tokenizer.convert_ids_to_tokens(first_input))
     print(first_label)
+    print(first_doc_stopword_mask)
 
     if use_prior:
         explainer = AttributionPriorExplainer(train_set, batch_size=batch_size, k=k)

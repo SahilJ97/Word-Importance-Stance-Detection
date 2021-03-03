@@ -30,9 +30,24 @@ def crop_or_pad(seq, length, padding_item="[PAD]"):
     return seq
 
 
+def get_stopword_mask(s, stopw_s):
+    if type(s) == str:
+        s = s.split()
+    if type(stopw_s) == str:
+        stopw_s = stopw_s.split()
+    s2stopwords, stopwords2s = tokenizations.get_alignments(s, stopw_s)
+    mask = []
+    for i in range(len(s)):
+        if len(s2stopwords[i]) > 0 and s[i] not in punc:
+            mask.append(1.)
+        else:
+            mask.append(0.)
+    return mask
+
+
 class VastReader(Dataset):
-    doc_len = 205
-    topic_len = 15
+    doc_len = 226
+    topic_len = 12
     max_len = topic_len + doc_len + 3
 
     def __init__(self,
@@ -161,9 +176,10 @@ class VastReader(Dataset):
                 if row["new_id"] in self.exclude_from_main:
                     continue
                 self.labels.append(int(row["label"]))
-                #doc_tokens = self.tokenizer.tokenize(row["post"])
-                doc_tokens = self.tokenizer.tokenize(row["text_s"])  # temp!
+                doc_tokens = self.tokenizer.tokenize(row["post"])
+                doc_stopword_tokens = self.tokenizer.tokenize(row["text_s"])
                 doc_tokens = crop_or_pad(doc_tokens, self.doc_len)
+                doc_stopword_mask = get_stopword_mask(doc_tokens, doc_stopword_tokens)
                 doc_tokens = CLS_ID + doc_tokens + SEP_ID
                 #topic_tokens = self.tokenizer.tokenize(row["new_topic"])
                 topic_tokens = self.tokenizer.tokenize(row["topic_str"])  # temp!
@@ -171,6 +187,7 @@ class VastReader(Dataset):
                 topic_tokens = topic_tokens + SEP_ID
                 input_dict = {
                     "input_tokens": doc_tokens + topic_tokens,
+                    "doc_stopword_mask": doc_stopword_mask,
                     "weights": None,
                     "relevance_scores": None,
                 }
@@ -232,7 +249,7 @@ class VastReader(Dataset):
             ip["input_tokens"]
         )
         attribution_info = (has_attribution_label, torch.tensor(weights), torch.tensor(relevance_scores))
-        return torch.tensor(input_seq), self.labels[idx], attribution_info
+        return torch.tensor(input_seq), self.labels[idx], torch.tensor(ip["doc_stopword_mask"]), attribution_info
 
     def __len__(self):
         return len(self.labels)
