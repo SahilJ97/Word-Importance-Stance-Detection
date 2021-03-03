@@ -19,11 +19,11 @@ sw_and_punc = sw + punc
 DEVICE = "cuda:3" if torch.cuda.is_available() else "cpu"  # use CUDA_VISIBLE_DEVICES=i python3 train.py? causes issue
 SEED = 0
 NUM_EPOCHS = 20
-"""CLASS_WEIGHTS = torch.tensor(
+CLASS_WEIGHTS = torch.tensor(
     [2.413433908045977, 2.528316086547507, 5.2594911937377695],
     device=DEVICE
 )  # inverse label frequency"""
-CLASS_WEIGHTS = None
+#CLASS_WEIGHTS = None
 loss = CrossEntropyLoss(weight=CLASS_WEIGHTS)
 
 # Parse arguments
