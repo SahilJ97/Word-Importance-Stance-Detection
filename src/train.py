@@ -120,6 +120,7 @@ def train():
             reference_inputs = reference_inputs.to(DEVICE)
             labels = labels[:batch_size]
             labels = labels.to(DEVICE)
+            doc_stopword_mask = doc_stopword_mask.to(DEVICE)
             outputs = model.forward(
                 pad_mask,
                 doc_stopword_mask,
@@ -196,6 +197,7 @@ def train():
                 pad_mask = get_pad_mask(inputs, train_set.tokenizer)
                 inputs = inputs.to(DEVICE)
                 labels = labels.to(DEVICE)
+                doc_stopword_mask = doc_stopword_mask.to(DEVICE)
                 all_labels.append(labels)
                 outputs = model.forward(
                     pad_mask,

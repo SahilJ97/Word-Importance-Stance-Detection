@@ -30,7 +30,7 @@ def crop_or_pad(seq, length, padding_item="[PAD]"):
     return seq
 
 
-def get_stopword_mask(s, stopw_s):
+def get_stopword_mask(s, stopw_s):  # takes ages to compute. maybe add these masks to the dataset?
     if type(s) == str:
         s = s.split()
     if type(stopw_s) == str:
