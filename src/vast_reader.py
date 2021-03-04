@@ -10,7 +10,6 @@ import string
 
 sw = stopwords.words("english")
 punc = [c for c in string.punctuation]
-sw_and_punc = sw + punc
 
 
 def contains_alpha(s):
@@ -30,18 +29,15 @@ def crop_or_pad(seq, length, padding_item="[PAD]"):
     return seq
 
 
-def get_stopword_mask(s, stopw_s):  # takes ages to compute. maybe add these masks to the dataset?
+def get_stopword_mask(s):
     if type(s) == str:
         s = s.split()
-    if type(stopw_s) == str:
-        stopw_s = stopw_s.split()
-    s2stopwords, stopwords2s = tokenizations.get_alignments(s, stopw_s)
     mask = []
-    for i in range(len(s)):
-        if len(s2stopwords[i]) > 0 and s[i] not in punc:
-            mask.append(1.)
-        else:
+    for word in s:
+        if word in sw:
             mask.append(0.)
+        else:
+            mask.append(1.)
     return mask
 
 
@@ -177,9 +173,8 @@ class VastReader(Dataset):
                     continue
                 self.labels.append(int(row["label"]))
                 doc_tokens = self.tokenizer.tokenize(row["post"])
-                doc_stopword_tokens = self.tokenizer.tokenize(row["text_s"])
                 doc_tokens = crop_or_pad(doc_tokens, self.doc_len)
-                doc_stopword_mask = get_stopword_mask(doc_tokens, doc_stopword_tokens)
+                doc_stopword_mask = get_stopword_mask(doc_tokens)
                 doc_tokens = CLS_ID + doc_tokens + SEP_ID
                 #topic_tokens = self.tokenizer.tokenize(row["new_topic"])
                 topic_tokens = self.tokenizer.tokenize(row["topic_str"])  # temp!
@@ -213,6 +208,7 @@ class VastReader(Dataset):
                     orig_weight_mapping = self.smooth(orig_weight_mapping, tf_idfs)
                     doc_tokens, weights = self.new_token_mapping(argument, orig_tokens, orig_weight_mapping)
                     doc_tokens = crop_or_pad(doc_tokens, self.doc_len)
+                    doc_stopword_mask = get_stopword_mask(doc_tokens)
                     weights = crop_or_pad(weights, self.doc_len, padding_item=0.)
                     doc_tokens = CLS_ID + doc_tokens + SEP_ID
                     weights = [0] + weights + [0]
@@ -228,6 +224,7 @@ class VastReader(Dataset):
                     relevance_scores = [0] + relevance_scores + [0]
                     input_dict = {
                         "input_tokens": doc_tokens + topic_tokens,
+                        "doc_stopword_mask": doc_stopword_mask,
                         "weights": weights,
                         "relevance_scores": relevance_scores,
                     }

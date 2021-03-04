@@ -11,6 +11,8 @@ from src import visualize
 import numpy as np
 from nltk.corpus import stopwords
 import string
+import os
+import pickle
 
 sw = stopwords.words("english")
 punc = [c for c in string.punctuation]
@@ -43,6 +45,37 @@ def empty_cache():
     if "cuda" in DEVICE:
         with torch.cuda.device(DEVICE):
             torch.cuda.empty_cache()
+
+
+def load_dataset(dataset_type="train"):
+    if dataset_type == "train":
+        filename = "train_set.pkl"
+    elif dataset_type == "dev":
+        filename = "dev_set.pkl"
+    else:
+        return
+
+    if os.path.exists(filename):
+        with open(filename, "rb") as f:
+            dataset = pickle.load(f)
+    else:
+        if dataset_type == "train":
+            dataset = VastReader(
+                # "../data/VAST/vast_train.csv",
+                "../../zero-shot-stance/data/VAST/vast_train.csv",  # temp!
+                "../data/VAST_word_importance/token_appearances.tsv",
+                exclude_from_main="../data/VAST_word_importance/special_datapoints.txt",
+                word_importance_csv="../data/VAST_word_importance/processed_annotated.csv",
+                smoothing=smoothing,
+                smooth_param=smooth_param,
+                relevance_type=relevance_type
+            )
+        elif dataset_type == "dev":
+            dataset = VastReader("../data/VAST/vast_dev.csv")
+        with open(filename, "wb") as f:
+            pickle.dump(dataset_type, f)
+    return dataset
+
 
 
 def get_pad_mask(inputs, tokenizer):
@@ -225,22 +258,12 @@ if __name__ == "__main__":
     torch.cuda.manual_seed_all(SEED)
 
     print("Loading data...")
-    train_set = VastReader(
-        #"../data/VAST/vast_train.csv",
-        "../../zero-shot-stance/data/VAST/vast_train.csv",  # temp!
-        "../data/VAST_word_importance/token_appearances.tsv",
-        #exclude_from_main="../data/VAST_word_importance/special_datapoints.txt",
-        #word_importance_csv="../data/VAST_word_importance/processed_annotated.csv",
-        smoothing=smoothing,
-        smooth_param=smooth_param,
-        relevance_type=relevance_type
-    )
+    train_set = load_dataset("train")
+    dev_set = load_dataset("dev")
 
     token_type_ids = [0 for _ in range(train_set.doc_len + 2)] + [1 for _ in range(train_set.topic_len + 1)]
     token_type_ids = [token_type_ids for _ in range(batch_size)]
     token_type_ids = torch.tensor(token_type_ids, dtype=torch.long, device=DEVICE)
-
-    dev_set = VastReader("../data/VAST/vast_dev.csv")
 
     first_input, first_label, first_doc_stopword_mask, _ = train_set[0]
     print(train_set.tokenizer.convert_ids_to_tokens(first_input))
