@@ -47,37 +47,6 @@ def empty_cache():
             torch.cuda.empty_cache()
 
 
-def load_dataset(dataset_type="train"):
-    if dataset_type == "train":
-        filename = "train_set.pkl"
-    elif dataset_type == "dev":
-        filename = "dev_set.pkl"
-    else:
-        return
-
-    if os.path.exists(filename):
-        with open(filename, "rb") as f:
-            dataset = pickle.load(f)
-    else:
-        if dataset_type == "train":
-            dataset = VastReader(
-                # "../data/VAST/vast_train.csv",
-                "../../zero-shot-stance/data/VAST/vast_train.csv",  # temp!
-                "../data/VAST_word_importance/token_appearances.tsv",
-                exclude_from_main="../data/VAST_word_importance/special_datapoints.txt",
-                word_importance_csv="../data/VAST_word_importance/processed_annotated.csv",
-                smoothing=smoothing,
-                smooth_param=smooth_param,
-                relevance_type=relevance_type
-            )
-        elif dataset_type == "dev":
-            dataset = VastReader("../data/VAST/vast_dev.csv")
-        with open(filename, "wb") as f:
-            pickle.dump(dataset_type, f)
-    return dataset
-
-
-
 def get_pad_mask(inputs, tokenizer):
     """Used to zero embeddings corresponding to [PAD] tokens before pooling BERT embeddings"""
     inputs = inputs.tolist()
@@ -104,7 +73,7 @@ def expected_gradients(x, y, references, x_pad_mask, doc_stopword_mask):
         shifted_inputs_embeds = r_embeds + alpha * (x_embeds - r_embeds)
         shifted_output = model.forward(
             x_pad_mask,
-            doc_stopword_mask,
+            doc_stopword_mask,  # okay to simply use stopword mask for x?
             inputs_embeds=shifted_inputs_embeds,
             use_dropout=False,
             token_type_ids=token_type_ids[0]
@@ -153,7 +122,7 @@ def train():
             reference_inputs = reference_inputs.to(DEVICE)
             labels = labels[:batch_size]
             labels = labels.to(DEVICE)
-            doc_stopword_mask = doc_stopword_mask.to(DEVICE)
+            doc_stopword_mask = doc_stopword_mask.to(DEVICE)[:batch_size]
             outputs = model.forward(
                 pad_mask,
                 doc_stopword_mask,
@@ -258,8 +227,17 @@ if __name__ == "__main__":
     torch.cuda.manual_seed_all(SEED)
 
     print("Loading data...")
-    train_set = load_dataset("train")
-    dev_set = load_dataset("dev")
+    train_set = dataset = VastReader(
+                # "../data/VAST/vast_train.csv",
+                "../../zero-shot-stance/data/VAST/vast_train.csv",  # temp!
+                "../data/VAST_word_importance/token_appearances.tsv",
+                exclude_from_main="../data/VAST_word_importance/special_datapoints.txt",
+                word_importance_csv="../data/VAST_word_importance/processed_annotated.csv",
+                smoothing=smoothing,
+                smooth_param=smooth_param,
+                relevance_type=relevance_type
+            )
+    dev_set = VastReader("../data/VAST/vast_dev.csv")
 
     token_type_ids = [0 for _ in range(train_set.doc_len + 2)] + [1 for _ in range(train_set.topic_len + 1)]
     token_type_ids = [token_type_ids for _ in range(batch_size)]
