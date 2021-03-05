@@ -11,14 +11,12 @@ from src import visualize
 import numpy as np
 from nltk.corpus import stopwords
 import string
-import os
-import pickle
 
 sw = stopwords.words("english")
 punc = [c for c in string.punctuation]
 sw_and_punc = sw + punc
 
-DEVICE = "cuda:3" if torch.cuda.is_available() else "cpu"  # use CUDA_VISIBLE_DEVICES=i python3 train.py? causes issue
+DEVICE = "cuda:3" if torch.cuda.is_available() else "cpu"  # MAY NEED TO CHANGE
 SEED = 0
 NUM_EPOCHS = 20
 """CLASS_WEIGHTS = torch.tensor(
@@ -29,7 +27,7 @@ CLASS_WEIGHTS = None
 loss = CrossEntropyLoss(weight=CLASS_WEIGHTS)
 
 # Parse arguments
-smoothing, smooth_param, relevance_type, use_prior, batch_size, learn_rate, k, lda, model_name = argv[1:10]
+smoothing, smooth_param, relevance_type, use_prior, batch_size, learn_rate, k, lda, model_name, fix_bert = argv[1:11]
 if smoothing == "none":
     smoothing = None
 else:
@@ -38,6 +36,7 @@ batch_size = int(batch_size)
 learn_rate = float(learn_rate)
 k = int(k)
 use_prior = use_prior in ["true", "True", "t"]
+fix_bert = fix_bert in ["true", "True", "t"]
 lda = float(lda)  # lambda (prior loss coefficient)
 
 
@@ -122,7 +121,7 @@ def train():
             reference_inputs = reference_inputs.to(DEVICE)
             labels = labels[:batch_size]
             labels = labels.to(DEVICE)
-            doc_stopword_mask = doc_stopword_mask.to(DEVICE)[:batch_size]
+            doc_stopword_mask = doc_stopword_mask[:batch_size].to(DEVICE)
             outputs = model.forward(
                 pad_mask,
                 doc_stopword_mask,
@@ -211,12 +210,9 @@ def train():
                 all_outputs.append(outputs)
             all_labels = torch.cat(all_labels, dim=0)
             all_outputs = torch.cat(all_outputs, dim=0)
-            print(all_labels)
             correctness_loss = loss(all_outputs, all_labels)
             _, all_preds = torch.max(all_outputs, dim=-1)
-            print(all_preds)
             class_f1 = f1_score(all_labels.tolist(), all_preds.tolist(), labels=[0, 1, 2], average=None)
-            print(class_f1)
         print(f"\tLoss: {correctness_loss.item()}")
         print(f"\tF1: {class_f1[0], class_f1[1], np.sum(class_f1)/3}")
 
@@ -252,7 +248,7 @@ if __name__ == "__main__":
         explainer = AttributionPriorExplainer(train_set, batch_size=batch_size, k=k)
 
     print("Loading model...")
-    model = BaselineBert(doc_len=train_set.doc_len, fix_bert=False)  # cannot fix BERT if using attribution prior
+    model = BaselineBert(doc_len=train_set.doc_len, fix_bert=fix_bert)  # cannot fix BERT if using attribution prior!
     model.to(DEVICE)
     optimizer = Adam(model.parameters(), lr=learn_rate)
 

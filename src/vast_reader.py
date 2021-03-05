@@ -105,26 +105,43 @@ class VastReader(Dataset):
         return new_tokens, new_token_scores
 
     def tf_idfs(self, orig_tokens, topic):
-        values = []
+        # Count document size (here, a "document" is a set of posts sharing the same topic)
+        n_terms_in_document = 0
+        with open(self.token_appearances_tsv, "r") as token_file:
+            for line in token_file:
+                token, appearances = line.split("\t")
+                appearances = appearances.split(",")
+                n_terms_in_document += appearances.count(topic)
+
+        # Count term appearances and term idfs
+        term_appearences = []
+        idfs = []
         for t in orig_tokens:
             t = t.lower()
+            found = False
             with open(self.token_appearances_tsv, "r") as token_file:
-                found = False
                 for line in token_file:
                     token, appearances = line.split("\t")
                     if token == t:
                         appearances = appearances.split(",")
-                        idf = log(self.n_topics / len(set(appearances)))
-                        tf = 0
+                        idfs.append(log(self.n_topics / len(set(appearances))))
+                        term_appearances = 0
                         for top in appearances:
                             if top == topic:
-                                tf += 1
-                        values.append(tf * idf)
+                                term_appearances += 1
+                        term_appearences.append(term_appearances)
                         found = True
                         break
                 if not found:
-                    print(f"Failed to compute TF-IDF for token {t}")
-                    values.append(0)
+                    print(f"Failed to compute TF-IDF for term {t}; using 0 instead")
+                    term_appearences.append(0.)
+                    idfs.append(1.)
+        values = []
+        print(topic)
+        for n_appearances, idf in zip(term_appearences, idfs):
+            values.append(n_appearances / n_terms_in_document * idf)
+        print(orig_tokens)
+        print(values)
         return values
 
     def relevance_scores(self, orig_tokens, tf_idfs=None):
@@ -258,5 +275,6 @@ if __name__ == "__main__":
         "../data/VAST_word_importance/token_appearances.tsv",
         exclude_from_main="../data/VAST_word_importance/special_datapoints.txt",
         word_importance_csv="../data/VAST_word_importance/processed_annotated.csv",
+        relevance_type="tf-idf"
     )
     print(len(dataset))

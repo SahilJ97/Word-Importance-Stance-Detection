@@ -37,7 +37,7 @@ class BaselineBert(VastClassifier, ABC):
         if inputs is not None:
             inputs_embeds = self.get_inputs_embeds(inputs)
         if self.fix_bert:
-            with torch.no_grad():  # leave BERT fixed
+            with torch.no_grad():
                 last_hidden_state, pooler_outputs = self.bert_model.forward(
                     inputs_embeds=inputs_embeds,
                     attention_mask=pad_mask,
