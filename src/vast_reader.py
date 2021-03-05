@@ -137,11 +137,8 @@ class VastReader(Dataset):
                     term_appearences.append(0.)
                     idfs.append(1.)
         values = []
-        print(topic)
         for n_appearances, idf in zip(term_appearences, idfs):
             values.append(n_appearances / n_terms_in_document * idf)
-        print(orig_tokens)
-        print(values)
         return values
 
     def relevance_scores(self, orig_tokens, tf_idfs=None):
