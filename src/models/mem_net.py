@@ -1,31 +1,38 @@
 import torch
+from src.models.vast_classifier import VastClassifier
+from abc import ABC
+
 
 class MemoryNetwork(VastClassifier, ABC):
     def __init__(
             self,
-            vocab,
             num_hops,
-            text_embedding_size,
             hidden_layer_size,
             init_topic_knowledge_file,
             knowledge_transfer_scheme="projection",
-            pretrained_model="bert-base-multilingual-cased"
+            **kwargs
     ):
-        super().__init__(vocab)
-        self.embedder = BertModel.from_pretrained(
-            pretrained_model,
-        )#.to(DEVICE)
+        super(MemoryNetwork, self).__init__(**kwargs)
         self.num_hops = num_hops
         self.knowledge_transfer_scheme = knowledge_transfer_scheme
-        self.M = torch.load(init_topic_knowledge_file,)# map_location=DEVICE)
-        self.W1 = torch.rand((text_embedding_size, text_embedding_size),)# device=DEVICE)
-        self.W2 = torch.rand((text_embedding_size, text_embedding_size),)# device=DEVICE)
+        self.M = torch.load(init_topic_knowledge_file,)
+        self.W1 = torch.rand((768, 768),)
+        self.W2 = torch.rand((768, 768),)
         if self.knowledge_transfer_scheme == "parallel":
-            hl_size = 2*text_embedding_size
+            hl_size = 2*768
         else:
-            hl_size = text_embedding_size
-        self.hidden_layer = torch.nn.Linear(hl_size, hidden_layer_size)#.to(DEVICE)
-        self.output_layer = torch.nn.Linear(hidden_layer_size, self.num_labels)#.to(DEVICE)
+            hl_size = 768
+        self.hidden_layer = torch.nn.Linear(hl_size, hidden_layer_size)
+        self.output_layer = torch.nn.Linear(hidden_layer_size, self.num_labels)
+
+    def to(self, *args, **kwargs):
+        self.bert_model = self.bert_model.to(*args, **kwargs)
+        self.M = self.M.to(*args, **kwargs)
+        self.W1 = self.W1.to(*args, **kwargs)
+        self.W2 = self.W2.to(*args, **kwargs)
+        self.hidden_layer = self.hidden_layer.to(*args, **kwargs)
+        self.output_layer = self.output_layer.to(*args, **kwargs)
+        return super().to(*args, **kwargs)
 
     def knowledge_transfer(self, topic_embedding, doc_embedding):
         def shared_math(h_input):
@@ -56,38 +63,22 @@ class MemoryNetwork(VastClassifier, ABC):
                 results.append(h)
             return torch.cat(results)
 
-    def forward(self, topic, document, label):  # also try with co-encoding, and using document in mem network
-        topic_input = torch.unsqueeze(topic["tokens"]["token_ids"], 1)#.to(DEVICE)
-        document_input = torch.unsqueeze(document["tokens"]["token_ids"], 1)#.to(DEVICE)
-        batch_size = list(topic_input.size())[0]
-
-        # Iterate through batch, generating embeddings
-        topic_embeddings = []
-        document_embeddings = []
-        for i in range(batch_size):  # want co-embeddings! refactor...
-            topic_embeddings.append(
-                bert_embedding(self.embedder, topic_input[i])
-            )
-            document_embeddings.append(
-                bert_embedding(self.embedder, document_input[i])
-            )
-        topic_embeddings = torch.stack(topic_embeddings)
-        document_embeddings = torch.stack(document_embeddings)
+    def forward(self, pad_mask, doc_stopword_mask, topic_stopword_mask, inputs=None, inputs_embeds=None,
+                use_dropout=True, token_type_ids=None):
+        doc, topic = self.extract_co_embeddings(
+            pad_mask=pad_mask,
+            doc_stopword_mask=doc_stopword_mask,
+            topic_stopword_mask=topic_stopword_mask,
+            inputs=inputs,
+            inputs_embeds=inputs_embeds,
+            token_type_ids=token_type_ids
+        )
 
         # Knowledge transfer component
-        H = []
-        for i in range(batch_size):
-            H.append(self.knowledge_transfer(topic_embeddings[i], document_embeddings[i]))
-        H = torch.stack(H)
+        H = self.knowledge_transfer(topic, doc)  # may need to fix that method! designed for one less dimension
 
         # Synthesizing component
         hl = torch.nn.functional.relu(
             self.hidden_layer(H)
         )
-        probs = torch.nn.functional.softmax(
-            self.output_layer(hl), dim=-1
-        )
-        loss = torch.nn.functional.cross_entropy(probs, label)
-        for metric in self.metrics.values():
-            metric(probs, label)
-        return {'loss': loss, 'probs': probs}
+        return self.output_layer(hl)

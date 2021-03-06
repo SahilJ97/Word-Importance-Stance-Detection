@@ -18,9 +18,9 @@ def get_text():
         topics_seen = set()
         reader = DictReader(f)
         for row in reader:
-            txt = "[CLS] " + row["new_topic"] + " [SEP]"
+            txt = "[CLS] " + row["topic_str"] + " [SEP]"  # new plan: co-embed but only use doc.
             if not topic_only:
-                txt += " " + row["post"] + " [SEP]"
+                txt += " " + row["text_s"] + " [SEP]"
             txt = txt.lower()
             if not topic_only or txt not in topics_seen:
                 topics_seen.add(txt)
