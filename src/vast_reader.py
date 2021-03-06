@@ -182,7 +182,7 @@ class VastReader(Dataset):
                     orig_word_weight_tuples = eval(row["weights"])
                     argument = row["argument"]
                     orig_tokens, orig_weight_mapping = zip(*orig_word_weight_tuples)
-                    orig_tf_idf_tuples = eval(row["weights"])
+                    orig_tf_idf_tuples = eval(row["tf_idf"])
                     _, orig_tf_idfs = zip(*orig_tf_idf_tuples)
                     orig_weight_mapping = self.smooth(orig_weight_mapping, orig_tf_idfs)
                     doc_tokens, weights = self.new_token_mapping(argument, orig_tokens, orig_weight_mapping)
