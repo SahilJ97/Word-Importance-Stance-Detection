@@ -7,6 +7,7 @@ from sys import stderr
 import torch
 from nltk.corpus import stopwords
 import string
+from csv import DictReader, DictWriter
 
 sw = stopwords.words("english")
 punc = [c for c in string.punctuation]
@@ -42,8 +43,8 @@ def get_stopword_mask(s):
 
 
 class VastReader(Dataset):
-    doc_len = 226
-    topic_len = 12
+    doc_len = 250
+    topic_len = 10
     max_len = topic_len + doc_len + 3
 
     def __init__(self,
@@ -55,7 +56,7 @@ class VastReader(Dataset):
                  smooth_param=.01,
                  relevance_type="binary",
                  tokenizer=BertTokenizer.from_pretrained("bert-base-uncased"),
-    ):
+                 ):
         """
         :param main_csv: Path to data CSV file
         :param exclude_from_main: Path to file containing new_id values of datapoints that should NOT be loaded from
@@ -103,43 +104,6 @@ class VastReader(Dataset):
             else:
                 new_token_scores.append(0.)
         return new_tokens, new_token_scores
-
-    def tf_idfs(self, orig_tokens, topic):
-        # Count document size (here, a "document" is a set of posts sharing the same topic)
-        n_terms_in_document = 0
-        with open(self.token_appearances_tsv, "r") as token_file:
-            for line in token_file:
-                token, appearances = line.split("\t")
-                appearances = appearances.split(",")
-                n_terms_in_document += appearances.count(topic)
-
-        # Count term appearances and term idfs
-        term_appearences = []
-        idfs = []
-        for t in orig_tokens:
-            t = t.lower()
-            found = False
-            with open(self.token_appearances_tsv, "r") as token_file:
-                for line in token_file:
-                    token, appearances = line.split("\t")
-                    if token == t:
-                        appearances = appearances.split(",")
-                        idfs.append(log(self.n_topics / len(set(appearances))))
-                        term_appearances = 0
-                        for top in appearances:
-                            if top == topic:
-                                term_appearances += 1
-                        term_appearences.append(term_appearances)
-                        found = True
-                        break
-                if not found:
-                    print(f"Failed to compute TF-IDF for term {t}; using 0 instead")
-                    term_appearences.append(0.)
-                    idfs.append(1.)
-        values = []
-        for n_appearances, idf in zip(term_appearences, idfs):
-            values.append(n_appearances / n_terms_in_document * idf)
-        return values
 
     def relevance_scores(self, orig_tokens, tf_idfs=None):
         if self.relevance_type == "tf-idf":
@@ -190,13 +154,15 @@ class VastReader(Dataset):
                 doc_tokens = crop_or_pad(doc_tokens, self.doc_len)
                 doc_stopword_mask = get_stopword_mask(doc_tokens)
                 doc_tokens = CLS_ID + doc_tokens + SEP_ID
-                #topic_tokens = self.tokenizer.tokenize(row["new_topic"])
-                topic_tokens = self.tokenizer.tokenize(row["topic_str"])  # temp!
+                # topic_tokens = self.tokenizer.tokenize(row["new_topic"])
+                topic_tokens = self.tokenizer.tokenize(row["new_topic"])  #
                 topic_tokens = crop_or_pad(topic_tokens, self.topic_len)
+                topic_stopword_mask = get_stopword_mask(topic_tokens)
                 topic_tokens = topic_tokens + SEP_ID
                 input_dict = {
                     "input_tokens": doc_tokens + topic_tokens,
                     "doc_stopword_mask": doc_stopword_mask,
+                    "topic_stopword_mask": topic_stopword_mask,
                     "weights": None,
                     "relevance_scores": None,
                 }
@@ -211,15 +177,14 @@ class VastReader(Dataset):
                     self.labels.append(int(row["label"]))
                     topic_tokens = self.tokenizer.tokenize(row["topic"])
                     topic_tokens = crop_or_pad(topic_tokens, self.topic_len)
+                    topic_stopword_mask = get_stopword_mask(topic_tokens)
                     topic_tokens = topic_tokens + SEP_ID
                     orig_word_weight_tuples = eval(row["weights"])
                     argument = row["argument"]
                     orig_tokens, orig_weight_mapping = zip(*orig_word_weight_tuples)
-                    if self.relevance_type == "tf-idf" or self.smoothing == "tf-idf":
-                        tf_idfs = self.tf_idfs(orig_tokens, row["topic"])
-                    else:
-                        tf_idfs = None
-                    orig_weight_mapping = self.smooth(orig_weight_mapping, tf_idfs)
+                    orig_tf_idf_tuples = eval(row["weights"])
+                    _, orig_tf_idfs = zip(*orig_tf_idf_tuples)
+                    orig_weight_mapping = self.smooth(orig_weight_mapping, orig_tf_idfs)
                     doc_tokens, weights = self.new_token_mapping(argument, orig_tokens, orig_weight_mapping)
                     doc_tokens = crop_or_pad(doc_tokens, self.doc_len)
                     doc_stopword_mask = get_stopword_mask(doc_tokens)
@@ -228,7 +193,7 @@ class VastReader(Dataset):
                     weights = [0] + weights + [0]
                     weight_sum = sum(weights)
                     weights = [w / weight_sum for w in weights]  # re-normalize (after potentially cropping)
-                    relevance_scores = self.relevance_scores(orig_tokens, tf_idfs)
+                    relevance_scores = self.relevance_scores(orig_tokens, orig_tf_idfs)
                     _, relevance_scores = self.new_token_mapping(
                         argument,
                         orig_tokens,
@@ -239,6 +204,7 @@ class VastReader(Dataset):
                     input_dict = {
                         "input_tokens": doc_tokens + topic_tokens,
                         "doc_stopword_mask": doc_stopword_mask,
+                        "topic_stopword_mask": topic_stopword_mask,
                         "weights": weights,
                         "relevance_scores": relevance_scores,
                     }
@@ -260,7 +226,8 @@ class VastReader(Dataset):
             ip["input_tokens"]
         )
         attribution_info = (has_attribution_label, torch.tensor(weights), torch.tensor(relevance_scores))
-        return torch.tensor(input_seq), self.labels[idx], torch.tensor(ip["doc_stopword_mask"]), attribution_info
+        return torch.tensor(input_seq), self.labels[idx], torch.tensor(ip["doc_stopword_mask"]), \
+            torch.tensor(ip["topic_stopword_mask"]), attribution_info
 
     def __len__(self):
         return len(self.labels)
