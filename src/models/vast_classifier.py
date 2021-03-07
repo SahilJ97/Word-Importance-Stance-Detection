@@ -8,12 +8,12 @@ class VastClassifier(nn.Module, ABC):
     num_labels = 3
 
     def __init__(self, doc_len=250, pretrained_model="bert-base-uncased"):
+        super().__init__()
         self.doc_len = doc_len
         self.bert_model = BertModel.from_pretrained(
             pretrained_model,
             num_labels=self.num_labels,
         )
-        super().__init__()
 
     def extract_co_embeddings(self, pad_mask, doc_stopword_mask, topic_stopword_mask, inputs=None, inputs_embeds=None,
                               token_type_ids=None):
@@ -22,7 +22,7 @@ class VastClassifier(nn.Module, ABC):
             raise ValueError("Either inputs or inputs_embeds must be provided")
         if inputs is not None:
             inputs_embeds = self.get_inputs_embeds(inputs)
-        if self.fix_bert:
+        if hasattr(self, "fix_bert") and self.fix_bert:
             with torch.no_grad():
                 last_hidden_state, pooler_outputs = self.bert_model.forward(
                     inputs_embeds=inputs_embeds,

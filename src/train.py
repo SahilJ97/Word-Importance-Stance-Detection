@@ -2,6 +2,7 @@ import torch
 from attributionpriors.attributionpriors.pytorch_ops import AttributionPriorExplainer
 from src.vast_reader import VastReader
 from src.models.bert_joint import BertJoint
+from src.models.mem_net import MemoryNetwork
 from torch.utils.data import DataLoader
 from torch.nn import CrossEntropyLoss
 from torch.optim import Adam
@@ -11,6 +12,7 @@ import numpy as np
 from nltk.corpus import stopwords
 import string
 import argparse
+import sys
 
 sw = stopwords.words("english")
 punc = [c for c in string.punctuation]
@@ -32,9 +34,14 @@ parser.add_argument('-l', '--learning_rate', type=float, required=True)
 parser.add_argument('-k', '--n_references', help='Number of references used to compute Expected Gradients', type=int,
                     required=True)
 parser.add_argument('--lambda', help='Prior loss coefficient', type=float, required=True)
-parser.add_argument('-m', '--model_name', help='Filename (without suffix) to which the best model will be saved',
+parser.add_argument('-o', '--output_name', help='Filename (without suffix) to which the best model will be saved',
                     required=True)
+parser.add_argument('-m', '--model_type', help='bert-joint or mem-net', required=True)
 parser.add_argument('-s', '--random_seed', type=int, required=True)
+parser.add_argument('--num_hops', help='Number of hops (only applies if model_type is mem-net)', type=int,
+                    required=False)
+parser.add_argument('--topic_knowledge', help='Topic knowledge file (only applies if model_type is mem-net)',
+                    required=False)
 args = vars(parser.parse_args())
 relevance_type = args['relevance_type']
 use_prior = args['use_prior']
@@ -42,8 +49,11 @@ batch_size = args['batch_size']
 learning_rate = args['learning_rate']
 k = args['n_references']
 lda = args['lambda']
-model_name = args['model_name']
+output_name = args['output_name']
+model_type = args['model_type']
 seed = args['random_seed']
+num_hops = args['num_hops']
+topic_knowledge = args['topic_knowledge']
 
 
 def empty_cache():
@@ -108,7 +118,7 @@ def train():
 
         # Prepare attribution visualization file
         if use_prior:
-            html_file = f"../output/{model_name}-{epoch}.html"
+            html_file = f"../output/{output_name}-{epoch}.html"
             with open(html_file, "w") as out_file:
                 out_file.write(visualize.header)
 
@@ -239,7 +249,7 @@ def train():
         if len(epoch_losses) >= 2:
             if epoch_combined_f1s[-1] == max(epoch_combined_f1s):
                 print("Saving model...")
-                torch.save(model, f"../output/{model_name}.pt")
+                torch.save(model, f"../output/{output_name}.pt")
 
 
 if __name__ == "__main__":
@@ -272,7 +282,14 @@ if __name__ == "__main__":
         explainer = AttributionPriorExplainer(train_set, batch_size=batch_size, k=k)
 
     print("Loading model...")
-    model = BertJoint(doc_len=train_set.doc_len, fix_bert=False)  # cannot fix BERT if using attribution prior!
+    if model_type == 'bert-joint':
+        model = BertJoint(doc_len=train_set.doc_len, fix_bert=False)  # cannot fix BERT if using attribution prior!
+    elif model_type == 'mem-net':
+        model = MemoryNetwork(doc_len=train_set.doc_len, num_hops=num_hops, hidden_layer_size=283,
+                              init_topic_knowledge_file=topic_knowledge)  # just for now
+    else:
+        print("Please specify a valid model type.", file=sys.stderr)
+        exit(1)
     model.to(DEVICE)
     optimizer = Adam(model.parameters(), lr=learning_rate)
 

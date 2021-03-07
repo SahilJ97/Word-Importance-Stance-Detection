@@ -64,7 +64,7 @@ class MemoryNetwork(VastClassifier, ABC):
             return torch.cat(results)
 
     def forward(self, pad_mask, doc_stopword_mask, topic_stopword_mask, inputs=None, inputs_embeds=None,
-                use_dropout=True, token_type_ids=None):
+                token_type_ids=None, **kwargs):
         doc, topic = self.extract_co_embeddings(
             pad_mask=pad_mask,
             doc_stopword_mask=doc_stopword_mask,
@@ -79,6 +79,6 @@ class MemoryNetwork(VastClassifier, ABC):
 
         # Synthesizing component
         hl = torch.nn.functional.relu(
-            self.hidden_layer(H)
+            self.hidden_layer(H)  # add dropout before this? requires some hyperparam searching.
         )
         return self.output_layer(hl)
