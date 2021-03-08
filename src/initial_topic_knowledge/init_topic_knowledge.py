@@ -34,6 +34,7 @@ if __name__ == "__main__":
     else:
         topic_embeddings = []
         for item in train_set:
+            print(item)
             inputs, _, doc_stopword_mask, topic_stopword_mask, _ = item
             inputs = torch.unsqueeze(inputs, dim=0)
             with torch.no_grad():
