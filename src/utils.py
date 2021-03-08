@@ -1,13 +1,13 @@
 import torch
+import numpy as np
 
 
-def bert_embedding(bert_model, x):
-    with torch.no_grad():
-        outputs = bert_model(x)
-    return outputs[1].squeeze()
-
-
-"""def bert_co_embeddings(bert_model, X):
-    embeddings = []
-    for x in X:
-"""
+def get_pad_mask(inputs):
+    """Used to zero embeddings corresponding to [PAD] tokens before pooling BERT embeddings"""
+    inputs = inputs.tolist()
+    mask = np.ones_like(inputs)
+    for i in range(len(inputs)):
+        for j in range(len(inputs[i])):
+            if inputs[i][j] == 0:
+                mask[i][j] = 0
+    return torch.tensor(mask, dtype=torch.float)

@@ -5,58 +5,51 @@ from csv import DictReader
 import torch
 from kmeans_pytorch import kmeans
 import os
-from src import utils
+from src.models.bert_joint import BertJoint
+from src.vast_reader import VastReader
+from src.utils import get_pad_mask
 
-BERT_MODEL = "bert-base-multilingual-cased"
-EMBEDDING_TYPE, N_SLOTS, INPUT_FILE, OUTPUT_FILE = argv[1:5]
+N_SLOTS, OUTPUT_FILE = argv[1], argv[2]
 N_SLOTS = int(N_SLOTS)
+EMBEDDINGS_FILE = "all_topic_embeddings.pt"
 
+train_set = VastReader(
+        "../../data/VAST/vast_train.csv",
+        "../../data/VAST_word_importance/token_appearances.tsv",
+        exclude_from_main="../../data/VAST_word_importance/special_datapoints.txt",
+        word_importance_csv="../../data/VAST_word_importance/processed_annotated.csv",
+        smoothing=None,
+        relevance_type="binary"
+    )
+model = BertJoint(doc_len=train_set.doc_len, fix_bert=True)
 
-def get_text():
-    topic_only = (EMBEDDING_TYPE == "topic")
-    with open(INPUT_FILE, 'r') as f:
-        topics_seen = set()
-        reader = DictReader(f)
-        for row in reader:
-            txt = "[CLS] " + row["topic_str"] + " [SEP]"  # new plan: co-embed but only use doc.
-            if not topic_only:
-                txt += " " + row["text_s"] + " [SEP]"
-            txt = txt.lower()
-            if not topic_only or txt not in topics_seen:
-                topics_seen.add(txt)
-                yield txt
+token_type_ids = [0 for _ in range(train_set.doc_len + 2)] + [1 for _ in range(train_set.topic_len + 1)]
+token_type_ids = torch.tensor([token_type_ids], dtype=torch.long)
 
 
 if __name__ == "__main__":
-    if EMBEDDING_TYPE == "topic":
-        embeddings_file = "all_topic_embeddings.pt"
-    else:
-        embeddings_file = "all_top_doc_embeddings.pt"
-
     # Load embeddings if embeddings_file exists, otherwise compute them
-    if os.path.exists(embeddings_file):
-        embeddings = torch.load(embeddings_file)
+    if os.path.exists(EMBEDDINGS_FILE):
+        topic_embeddings = torch.load(EMBEDDINGS_FILE)
     else:
-        tokenizer = BertTokenizer.from_pretrained(BERT_MODEL)
-        model = BertModel.from_pretrained(BERT_MODEL)
-        print("Embedding topics...")
-        embeddings = []
-        for text in get_text():
-            true_tokens = tokenizer.tokenize(text)
-            indexed_tokens = tokenizer.convert_tokens_to_ids(true_tokens)
-            input_ids = torch.tensor(indexed_tokens).unsqueeze(0)
-            """with torch.no_grad():
-                outputs = model(input_ids)
-            last_hidden_state = outputs[0][-1].squeeze()  # use utils.bert_embedding???
-            text_embedding = torch.mean(last_hidden_state, 0)"""
-            text_embedding = utils.bert_embedding(model, input_ids)  # may need to rerun clustering now...
-            embeddings.append(text_embedding)
-        embeddings = torch.stack(embeddings)
-        torch.save(embeddings, embeddings_file)
+        topic_embeddings = []
+        for item in train_set:
+            inputs, _, doc_stopword_mask, topic_stopword_mask, _ = item
+            inputs = torch.unsqueeze(inputs, dim=0)
+            doc, topic = model.extract_co_embeddings(
+                get_pad_mask(inputs),
+                torch.unsqueeze(doc_stopword_mask, dim=0),
+                torch.unsqueeze(topic_stopword_mask, dim=0),
+                inputs=inputs,
+                token_type_ids=token_type_ids
+            )
+            topic_embeddings.append(topic)
+        topic_embeddings = torch.stack(topic_embeddings)
+        torch.save(topic_embeddings, EMBEDDINGS_FILE)
 
     # Cluster
     cluster_ids_x, cluster_centers = kmeans(
-        X=embeddings, num_clusters=N_SLOTS, distance='euclidean'
+        X=topic_embeddings, num_clusters=N_SLOTS, distance='euclidean'
     )
     torch.save(cluster_centers, OUTPUT_FILE)
 
@@ -65,6 +58,6 @@ if __name__ == "__main__":
     sse = torch.tensor(0.)
     for i in range(len(cluster_ids_x)):
         center = cluster_centers[cluster_ids_x[i]]
-        embedding = embeddings[i]
+        embedding = topic_embeddings[i]
         sse += torch.dist(embedding, center).pow(2)
     print(f"SSE: {sse.numpy()}")

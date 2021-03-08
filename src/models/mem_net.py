@@ -16,10 +16,10 @@ class MemoryNetwork(VastClassifier, ABC):
         self.num_hops = num_hops
         self.knowledge_transfer_scheme = knowledge_transfer_scheme
         self.M = torch.load(init_topic_knowledge_file,)  # unsqueeze?
-        self.W1 = torch.rand((768, 768),)
-        self.W2 = torch.rand((768, 768),)
+        self.W1 = torch.zeros((768, 768),)
+        self.W2 = torch.zeros((768, 768),)
         if self.knowledge_transfer_scheme == "parallel":
-            hl_size = 2*768
+            hl_size = 4*768
         else:
             hl_size = 768
         self.hidden_layer = torch.nn.Linear(hl_size, hidden_layer_size)
@@ -51,11 +51,11 @@ class MemoryNetwork(VastClassifier, ABC):
                 h = torch.div(
                     torch.dot(h, doc_embedding),
                     torch.square(torch.norm(h))
-                ) * h  # project document embedding onto h
+                ) * h  # project document embedding onto h. DEFINITELY REVISE THIS SCHEME!!!
             return h
 
         elif self.knowledge_transfer_scheme == "parallel":
-            results = []
+            results = [topic_embedding, doc_embedding]
             for h in topic_embedding, doc_embedding:
                 for hop in range(self.num_hops):
                     h = shared_math(h)

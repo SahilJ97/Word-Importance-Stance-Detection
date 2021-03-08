@@ -3,6 +3,7 @@ from attributionpriors.attributionpriors.pytorch_ops import AttributionPriorExpl
 from src.vast_reader import VastReader
 from src.models.bert_joint import BertJoint
 from src.models.mem_net import MemoryNetwork
+from src.utils import get_pad_mask
 from torch.utils.data import DataLoader
 from torch.nn import CrossEntropyLoss
 from torch.optim import Adam
@@ -66,17 +67,6 @@ def empty_cache():
             torch.cuda.empty_cache()
 
 
-def get_pad_mask(inputs, tokenizer):
-    """Used to zero embeddings corresponding to [PAD] tokens before pooling BERT embeddings"""
-    inputs = inputs.tolist()
-    mask = np.ones_like(inputs)
-    for i in range(len(inputs)):
-        for j in range(len(inputs[i])):
-            if inputs[i][j] == 0:
-                mask[i][j] = 0
-    return torch.tensor(mask, dtype=torch.float, device=DEVICE)
-
-
 def expected_gradients(x, y, references, x_pad_mask, doc_stopword_mask, topic_stopword_mask):
     input_length = len(x)
     x_embeds = model.get_inputs_embeds(torch.unsqueeze(x, dim=0))
@@ -138,7 +128,7 @@ def train():
             inputs, labels, doc_stopword_mask, topic_stopword_mask, attribution_info = data
             has_att_labels, weights, relevance_scores = attribution_info
             inputs, reference_inputs = inputs[:batch_size], inputs[batch_size:]
-            pad_mask = get_pad_mask(inputs, train_set.tokenizer)
+            pad_mask = get_pad_mask(inputs, train_set.tokenizer).to(DEVICE)
             inputs = inputs.to(DEVICE)
             reference_inputs = reference_inputs.to(DEVICE)
             labels = labels[:batch_size]
@@ -216,7 +206,7 @@ def train():
             for i, data in enumerate(dev_loader, 0):
                 empty_cache()
                 inputs, labels, doc_stopword_mask, topic_stopword_mask, _ = data
-                pad_mask = get_pad_mask(inputs, train_set.tokenizer)
+                pad_mask = get_pad_mask(inputs, train_set.tokenizer).to(DEVICE)
                 inputs = inputs.to(DEVICE)
                 labels = labels.to(DEVICE)
                 doc_stopword_mask = doc_stopword_mask.to(DEVICE)
@@ -262,7 +252,7 @@ if __name__ == "__main__":
     torch.cuda.manual_seed_all(seed)
 
     print("Loading data...")
-    train_set = dataset = VastReader(
+    train_set = VastReader(
         "../data/VAST/vast_train.csv",
         "../data/VAST_word_importance/token_appearances.tsv",
         exclude_from_main="../data/VAST_word_importance/special_datapoints.txt",
