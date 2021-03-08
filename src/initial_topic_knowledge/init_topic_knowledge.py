@@ -36,13 +36,14 @@ if __name__ == "__main__":
         for item in train_set:
             inputs, _, doc_stopword_mask, topic_stopword_mask, _ = item
             inputs = torch.unsqueeze(inputs, dim=0)
-            doc, topic = model.extract_co_embeddings(
-                get_pad_mask(inputs),
-                torch.unsqueeze(doc_stopword_mask, dim=0),
-                torch.unsqueeze(topic_stopword_mask, dim=0),
-                inputs=inputs,
-                token_type_ids=token_type_ids
-            )
+            with torch.no_grad():
+                doc, topic = model.extract_co_embeddings(
+                    get_pad_mask(inputs),
+                    torch.unsqueeze(doc_stopword_mask, dim=0),
+                    torch.unsqueeze(topic_stopword_mask, dim=0),
+                    inputs=inputs,
+                    token_type_ids=token_type_ids
+                )
             topic_embeddings.append(topic)
         topic_embeddings = torch.stack(topic_embeddings)
         torch.save(topic_embeddings, EMBEDDINGS_FILE)
