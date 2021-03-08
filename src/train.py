@@ -42,6 +42,9 @@ parser.add_argument('--num_hops', help='Number of hops (only applies if model_ty
                     required=False)
 parser.add_argument('--topic_knowledge', help='Topic knowledge file (only applies if model_type is mem-net)',
                     required=False)
+parser.add_argument('--knowledge_transfer',
+                    help='Knowledge transfer scheme (parallel or projection). Only applies if model_type is mem-net',
+                    required=False)
 args = vars(parser.parse_args())
 relevance_type = args['relevance_type']
 use_prior = args['use_prior']
@@ -54,6 +57,7 @@ model_type = args['model_type']
 seed = args['random_seed']
 num_hops = args['num_hops']
 topic_knowledge = args['topic_knowledge']
+knowledge_transfer = args['knowledge_transfer']
 
 
 def empty_cache():
@@ -286,7 +290,7 @@ if __name__ == "__main__":
         model = BertJoint(doc_len=train_set.doc_len, fix_bert=False)  # cannot fix BERT if using attribution prior!
     elif model_type == 'mem-net':
         model = MemoryNetwork(doc_len=train_set.doc_len, num_hops=num_hops, hidden_layer_size=283,
-                              init_topic_knowledge_file=topic_knowledge)  # just for now
+                              init_topic_knowledge_file=topic_knowledge, knowledge_transfer_scheme=knowledge_transfer)
     else:
         print("Please specify a valid model type.", file=sys.stderr)
         exit(1)

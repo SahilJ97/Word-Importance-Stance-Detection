@@ -62,14 +62,6 @@ class MemoryNetwork(VastClassifier, ABC):
                 results.append(h)
             return torch.cat(results)
 
-        elif self.knowledge_transfer_scheme == "parallel":
-            results = []
-            for h in topic_embedding, doc_embedding:
-                for hop in range(self.num_hops):
-                    h = shared_math(h)
-                results.append(h)
-            return torch.cat(results)
-
     def forward(self, pad_mask, doc_stopword_mask, topic_stopword_mask, inputs=None, inputs_embeds=None,
                 token_type_ids=None, **kwargs):
         doc_embeddings, topic_embeddings = self.extract_co_embeddings(
@@ -83,7 +75,7 @@ class MemoryNetwork(VastClassifier, ABC):
 
         # Knowledge transfer component
         H = []
-        for doc_emb, topic_emb in zip(doc_embeddings, topic_embeddings):
+        for doc_emb, topic_emb in zip(doc_embeddings, topic_embeddings):  # could probably speed this up by doing it all at once. try again
             H.append(self.knowledge_transfer(topic_emb, doc_emb))
         H = torch.stack(H)
 
