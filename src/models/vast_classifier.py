@@ -15,6 +15,10 @@ class VastClassifier(nn.Module, ABC):
             num_labels=self.num_labels,
         )
 
+    def to(self, *args, **kwargs):
+        self.bert_model = self.bert_model.to(*args, **kwargs)
+        return super().to(*args, **kwargs)
+
     def extract_co_embeddings(self, pad_mask, doc_stopword_mask, topic_stopword_mask, inputs=None, inputs_embeds=None,
                               token_type_ids=None):
         # Inputs/inputs_embeds are organized as "[CLS] document [SEP] topic [SEP]"

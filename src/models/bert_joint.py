@@ -14,7 +14,6 @@ class BertJoint(VastClassifier, ABC):
         self.output_layer = torch.nn.Linear(283, 3)
 
     def to(self, *args, **kwargs):
-        self.bert_model = self.bert_model.to(*args, **kwargs)
         self.hidden_layer.to(*args, **kwargs)
         self.output_layer.to(*args, **kwargs)
         return super().to(*args, **kwargs)

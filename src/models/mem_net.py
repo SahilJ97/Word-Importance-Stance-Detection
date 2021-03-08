@@ -26,7 +26,6 @@ class MemoryNetwork(VastClassifier, ABC):
         self.output_layer = torch.nn.Linear(hidden_layer_size, self.num_labels)
 
     def to(self, *args, **kwargs):
-        self.bert_model = self.bert_model.to(*args, **kwargs)
         self.M = self.M.to(*args, **kwargs)
         self.W1 = self.W1.to(*args, **kwargs)
         self.W2 = self.W2.to(*args, **kwargs)
