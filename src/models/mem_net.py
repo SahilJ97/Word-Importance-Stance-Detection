@@ -38,7 +38,7 @@ class MemoryNetwork(VastClassifier, ABC):
             alphas = self.W1 @ h_input
             alphas = self.M @ alphas
             alphas = torch.softmax(alphas, dim=-1)  # shape: (num_memory_slots)
-            o = torch.zeros(h_input.size())
+            o = torch.zeros(h_input.size(), device=alphas.device)
             for mem_slot_n in range(len(alphas)):
                 attended = alphas[mem_slot_n] * self.M[mem_slot_n]
                 o += attended
