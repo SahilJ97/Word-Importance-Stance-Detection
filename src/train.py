@@ -128,7 +128,7 @@ def train():
             inputs, labels, doc_stopword_mask, topic_stopword_mask, attribution_info = data
             has_att_labels, weights, relevance_scores = attribution_info
             inputs, reference_inputs = inputs[:batch_size], inputs[batch_size:]
-            pad_mask = get_pad_mask(inputs, train_set.tokenizer).to(DEVICE)
+            pad_mask = get_pad_mask(inputs).to(DEVICE)
             inputs = inputs.to(DEVICE)
             reference_inputs = reference_inputs.to(DEVICE)
             labels = labels[:batch_size]
@@ -206,7 +206,7 @@ def train():
             for i, data in enumerate(dev_loader, 0):
                 empty_cache()
                 inputs, labels, doc_stopword_mask, topic_stopword_mask, _ = data
-                pad_mask = get_pad_mask(inputs, train_set.tokenizer).to(DEVICE)
+                pad_mask = get_pad_mask(inputs).to(DEVICE)
                 inputs = inputs.to(DEVICE)
                 labels = labels.to(DEVICE)
                 doc_stopword_mask = doc_stopword_mask.to(DEVICE)
