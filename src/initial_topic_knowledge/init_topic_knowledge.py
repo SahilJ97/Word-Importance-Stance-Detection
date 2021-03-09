@@ -34,14 +34,14 @@ if __name__ == "__main__":
                     print(f"Embedding {i+1}-th datapoint")
                 inputs, _, doc_stopword_mask, topic_stopword_mask, _ = train_set[i]
                 inputs = torch.unsqueeze(inputs, dim=0)
-                doc, topic = model.extract_co_embeddings(
+                doc, topic = model.extract_co_embeddings(  # embed in batches of 64 for speed?
                     get_pad_mask(inputs),
                     torch.unsqueeze(doc_stopword_mask, dim=0),
                     torch.unsqueeze(topic_stopword_mask, dim=0),
                     inputs=inputs,
                     token_type_ids=token_type_ids
                 )
-                topic_embeddings.append(topic)
+                topic_embeddings.append(topic[0])
             topic_embeddings = torch.stack(topic_embeddings)
         torch.save(topic_embeddings, EMBEDDINGS_FILE)
 

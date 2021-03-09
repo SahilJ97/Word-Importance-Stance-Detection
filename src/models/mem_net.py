@@ -15,7 +15,7 @@ class MemoryNetwork(VastClassifier, ABC):
         super(MemoryNetwork, self).__init__(**kwargs)
         self.num_hops = num_hops
         self.knowledge_transfer_scheme = knowledge_transfer_scheme
-        self.M = torch.load(init_topic_knowledge_file,)  # unsqueeze?
+        self.M = torch.load(init_topic_knowledge_file,)
         self.W1 = torch.zeros((768, 768),)
         self.W2 = torch.zeros((768, 768),)
         if self.knowledge_transfer_scheme == "parallel":
