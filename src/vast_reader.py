@@ -1,13 +1,11 @@
 from torch.utils.data import Dataset
 from transformers.tokenization_bert import BertTokenizer
-from csv import DictReader
 import tokenizations
-from math import log
 from sys import stderr
 import torch
 from nltk.corpus import stopwords
 import string
-from csv import DictReader, DictWriter
+from csv import DictReader
 
 sw = stopwords.words("english")
 punc = [c for c in string.punctuation]
