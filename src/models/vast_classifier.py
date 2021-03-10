@@ -51,6 +51,7 @@ class VastClassifier(nn.Module, ABC):
         doc_embeds = last_hidden_state[:, 1:self.doc_len + 1:]
         doc_embeds = torch.unsqueeze(doc_stopword_mask, dim=-1) * doc_embeds
         topic_embeds = last_hidden_state[:, self.doc_len + 2:-1]
+        topic_embeds = torch.unsqueeze(topic_stopword_mask, dim=-1) * topic_embeds
         doc = torch.sum(doc_embeds, dim=1) / doc_token_counts[:, None]  # same idea for document embeddings
         topic = torch.sum(topic_embeds, dim=1) / topic_token_counts[:, None]  # avg of non-zeroed topic tokens
         return doc, topic
