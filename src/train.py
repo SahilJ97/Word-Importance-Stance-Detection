@@ -23,7 +23,7 @@ loss = CrossEntropyLoss(weight=CLASS_WEIGHTS)
 true_strings = ['t', 'true', '1', 'yes', 'y', ]
 parser = argparse.ArgumentParser()
 parser.add_argument('-r', '--relevance_type', help='Type of relevance scores ("none", "binary", or "tf-idf")',
-                    required=False, default=None)
+                    required=True)
 parser.add_argument('-u', '--use_prior', help='Use attribution prior? y or n',
                     type=lambda x: (str(x).lower() in true_strings), required=True)
 parser.add_argument('-b', '--batch_size', type=int, required=True)
