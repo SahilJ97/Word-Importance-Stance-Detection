@@ -23,7 +23,7 @@ loss = CrossEntropyLoss(weight=CLASS_WEIGHTS)
 true_strings = ['t', 'true', '1', 'yes', 'y', ]
 parser = argparse.ArgumentParser()
 parser.add_argument('-r', '--relevance_type', help='Type of relevance scores ("none", "binary", or "tf-idf")',
-                    required=False)
+                    required=False, default=None)
 parser.add_argument('-u', '--use_prior', help='Use attribution prior? y or n',
                     type=lambda x: (str(x).lower() in true_strings), required=True)
 parser.add_argument('-b', '--batch_size', type=int, required=True)
@@ -263,10 +263,10 @@ if __name__ == "__main__":
     token_type_ids = torch.tensor(token_type_ids, dtype=torch.long, device=DEVICE)
 
     first_input, first_label, first_doc_stopword_mask, first_topic_stopword_mask, _ = train_set[0]
-    """print(train_set.tokenizer.convert_ids_to_tokens(first_input))
+    print(train_set.tokenizer.convert_ids_to_tokens(first_input))
     print(first_label)
     print(first_doc_stopword_mask)
-    print(first_topic_stopword_mask)"""
+    print(first_topic_stopword_mask)
 
     print("Loading model...")
     if model_type == 'bert-joint':

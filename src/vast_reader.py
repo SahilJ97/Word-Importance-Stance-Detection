@@ -154,8 +154,7 @@ class VastReader(Dataset):
                 doc_tokens = crop_or_pad(doc_tokens, self.doc_len)
                 doc_stopword_mask = get_stopword_mask(doc_tokens)
                 doc_tokens = CLS_ID + doc_tokens + SEP_ID
-                # topic_tokens = self.tokenizer.tokenize(row["new_topic"])
-                topic_tokens = self.tokenizer.tokenize(row["new_topic"])  #
+                topic_tokens = self.tokenizer.tokenize(row["new_topic"])
                 topic_tokens = crop_or_pad(topic_tokens, self.topic_len)
                 topic_stopword_mask = get_stopword_mask(topic_tokens)
                 topic_tokens = topic_tokens + SEP_ID
