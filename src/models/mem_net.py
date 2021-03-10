@@ -59,12 +59,11 @@ class MemoryNetwork(VastClassifier, ABC):
                 results.append(h)
             return torch.cat(results, dim=-1)
 
-    def forward(self, pad_mask, doc_stopword_mask, topic_stopword_mask, inputs=None, inputs_embeds=None,
+    def forward(self, pad_mask, doc_stopword_mask, inputs=None, inputs_embeds=None,
                 token_type_ids=None, **kwargs):
         doc_embeddings, topic_embeddings = self.extract_co_embeddings(
             pad_mask=pad_mask,
             doc_stopword_mask=doc_stopword_mask,
-            topic_stopword_mask=topic_stopword_mask,
             inputs=inputs,
             inputs_embeds=inputs_embeds,
             token_type_ids=token_type_ids
