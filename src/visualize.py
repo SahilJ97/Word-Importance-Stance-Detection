@@ -53,18 +53,20 @@ weight_to_class = {
     1.: "ten",
 }
 
+EPSILON = 1e-6
+
 
 def get_words_html(words, weights):
     denom = max(weights)
     out_html = []
     for word, weight in zip(words, weights):
-        rounded = round(float(weight/denom), 1)
+        rounded = round(float(weight/(denom + EPSILON)), 1)
         opacity = weight_to_class[rounded]
         out_html.append(f"<span class=\"{opacity}\" display: inline>{word}</span>")
     return " ".join(out_html)
 
 
-if __name__=="__main__":
+if __name__ == "__main__":
     print(weight_to_class.keys())
     print(header)
     text, weights = ["hello", "world"], [.55, 1.2]
