@@ -14,7 +14,7 @@ import string
 import argparse
 import sys
 
-NUM_EPOCHS = 20
+NUM_EPOCHS = 10
 CLASS_WEIGHTS = None
 loss = CrossEntropyLoss(weight=CLASS_WEIGHTS)
 
