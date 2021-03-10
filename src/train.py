@@ -14,7 +14,6 @@ import string
 import argparse
 import sys
 
-DEVICE = "cuda:1" if torch.cuda.is_available() else "cpu"  # change GPU as necessary
 NUM_EPOCHS = 20
 CLASS_WEIGHTS = None
 loss = CrossEntropyLoss(weight=CLASS_WEIGHTS)
@@ -23,7 +22,7 @@ loss = CrossEntropyLoss(weight=CLASS_WEIGHTS)
 true_strings = ['t', 'true', '1', 'yes', 'y', ]
 parser = argparse.ArgumentParser()
 parser.add_argument('-r', '--relevance_type', help='Type of relevance scores ("binary" or "tf-idf")',
-                    required=True)
+                    required=False)
 parser.add_argument('-u', '--use_prior', help='Use attribution prior? y or n',
                     type=lambda x: (str(x).lower() in true_strings), required=True)
 parser.add_argument('-b', '--batch_size', type=int, required=True)
@@ -42,8 +41,11 @@ parser.add_argument('--topic_knowledge', help='Topic knowledge file (only applie
 parser.add_argument('--knowledge_transfer',
                     help='Knowledge transfer scheme (parallel or projection). Only applies if model_type is mem-net',
                     required=False)
+parser.add_argument('--gpu', required=False)
 args = vars(parser.parse_args())
 relevance_type = args['relevance_type']
+if not relevance_type:
+    relevance_type = "binary"
 use_prior = args['use_prior']
 batch_size = args['batch_size']
 learning_rate = args['learning_rate']
@@ -55,6 +57,9 @@ seed = args['random_seed']
 num_hops = args['num_hops']
 topic_knowledge = args['topic_knowledge']
 knowledge_transfer = args['knowledge_transfer']
+gpu = args['gpu']
+
+DEVICE = f"cuda:{gpu}" if gpu else "cpu"
 
 
 def empty_cache():
