@@ -1,5 +1,4 @@
 import torch
-from attributionpriors.attributionpriors.pytorch_ops import AttributionPriorExplainer
 from src.vast_reader import VastReader
 from src.models.bert_joint import BertJoint
 from src.models.mem_net import MemoryNetwork
@@ -15,11 +14,7 @@ import string
 import argparse
 import sys
 
-sw = stopwords.words("english")
-punc = [c for c in string.punctuation]
-sw_and_punc = sw + punc
-
-DEVICE = "cuda:1" if torch.cuda.is_available() else "cpu"  # change GPU # as necessary
+DEVICE = "cuda:1" if torch.cuda.is_available() else "cpu"  # change GPU as necessary
 NUM_EPOCHS = 20
 CLASS_WEIGHTS = None
 loss = CrossEntropyLoss(weight=CLASS_WEIGHTS)
@@ -28,14 +23,14 @@ loss = CrossEntropyLoss(weight=CLASS_WEIGHTS)
 true_strings = ['t', 'true', '1', 'yes', 'y', ]
 parser = argparse.ArgumentParser()
 parser.add_argument('-r', '--relevance_type', help='Type of relevance scores ("none", "binary", or "tf-idf")',
-                    required=True)
+                    required=False)
 parser.add_argument('-u', '--use_prior', help='Use attribution prior? y or n',
                     type=lambda x: (str(x).lower() in true_strings), required=True)
 parser.add_argument('-b', '--batch_size', type=int, required=True)
 parser.add_argument('-l', '--learning_rate', type=float, required=True)
 parser.add_argument('-k', '--n_references', help='Number of references used to compute Expected Gradients', type=int,
-                    required=True)
-parser.add_argument('--lambda', help='Prior loss coefficient', type=float, required=True)
+                    required=False)
+parser.add_argument('--lambda', help='Prior loss coefficient', type=float, required=False)
 parser.add_argument('-o', '--output_name', help='Filename (without suffix) to which the best model will be saved',
                     required=True)
 parser.add_argument('-m', '--model_type', help='bert-joint or mem-net', required=True)

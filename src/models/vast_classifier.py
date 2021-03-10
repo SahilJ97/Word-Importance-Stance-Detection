@@ -7,7 +7,7 @@ from transformers import BertModel
 class VastClassifier(nn.Module, ABC):
     num_labels = 3
 
-    def __init__(self, doc_len=250, pretrained_model="bert-base-uncased"):
+    def __init__(self, doc_len, pretrained_model="bert-base-uncased"):
         super().__init__()
         self.doc_len = doc_len
         self.bert_model = BertModel.from_pretrained(
