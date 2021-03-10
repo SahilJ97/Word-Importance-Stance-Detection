@@ -17,12 +17,11 @@ class BertJoint(VastClassifier, ABC):
         self.output_layer.to(*args, **kwargs)
         return super().to(*args, **kwargs)
 
-    def forward(self, pad_mask, doc_stopword_mask, topic_stopword_mask, inputs=None, inputs_embeds=None,
+    def forward(self, pad_mask, doc_stopword_mask, inputs=None, inputs_embeds=None,
                 use_dropout=True, token_type_ids=None):
         doc, topic = self.extract_co_embeddings(
             pad_mask=pad_mask,
             doc_stopword_mask=doc_stopword_mask,
-            topic_stopword_mask=topic_stopword_mask,
             inputs=inputs,
             inputs_embeds=inputs_embeds,
             token_type_ids=token_type_ids

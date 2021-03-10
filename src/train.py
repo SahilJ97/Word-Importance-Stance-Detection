@@ -63,12 +63,11 @@ def empty_cache():
             torch.cuda.empty_cache()
 
 
-def expected_gradients(x, y, references, x_pad_mask, doc_stopword_mask, topic_stopword_mask):
+def expected_gradients(x, y, references, x_pad_mask, doc_stopword_mask):
     input_length = len(x)
     x_embeds = model.get_inputs_embeds(torch.unsqueeze(x, dim=0))
     x_pad_mask = torch.unsqueeze(x_pad_mask, dim=0)
     doc_stopword_mask = torch.unsqueeze(doc_stopword_mask, dim=0)
-    topic_stopword_mask = torch.unsqueeze(topic_stopword_mask, dim=0)
     references_embeds = model.get_inputs_embeds(references)
     alphas = torch.rand(len(references), device=DEVICE)
     attributions = torch.zeros((input_length,), device=DEVICE)
@@ -78,7 +77,6 @@ def expected_gradients(x, y, references, x_pad_mask, doc_stopword_mask, topic_st
         shifted_output = model.forward(
             x_pad_mask,
             doc_stopword_mask,  # note: simply using stopword masks for x
-            topic_stopword_mask,
             inputs_embeds=shifted_inputs_embeds,
             use_dropout=False,
             token_type_ids=token_type_ids[0]
@@ -121,7 +119,7 @@ def train():
         for i, data in enumerate(train_loader, 0):
             optimizer.zero_grad()
             empty_cache()
-            inputs, labels, doc_stopword_mask, topic_stopword_mask, attribution_info = data
+            inputs, labels, doc_stopword_mask, attribution_info = data
             has_att_labels, weights, relevance_scores = attribution_info
             inputs, reference_inputs = inputs[:batch_size], inputs[batch_size:]
             pad_mask = get_pad_mask(inputs).to(DEVICE)
@@ -130,11 +128,9 @@ def train():
             labels = labels[:batch_size]
             labels = labels.to(DEVICE)
             doc_stopword_mask = doc_stopword_mask[:batch_size].to(DEVICE)
-            topic_stopword_mask = topic_stopword_mask[:batch_size].to(DEVICE)
             outputs = model.forward(
                 pad_mask,
                 doc_stopword_mask,
-                topic_stopword_mask,
                 inputs=inputs,
                 use_dropout=True,
                 token_type_ids=token_type_ids[:len(inputs)]
@@ -154,7 +150,6 @@ def train():
                             reference_inputs,
                             x_pad_mask=pad_mask[j],
                             doc_stopword_mask=doc_stopword_mask[j],
-                            topic_stopword_mask=topic_stopword_mask[j]
                         )
                         attributions = torch.abs(attributions)
                         scores = attributions / torch.sum(attributions, dim=-1)
@@ -201,17 +196,15 @@ def train():
             all_outputs = []
             for i, data in enumerate(dev_loader, 0):
                 empty_cache()
-                inputs, labels, doc_stopword_mask, topic_stopword_mask, _ = data
+                inputs, labels, doc_stopword_mask, _ = data
                 pad_mask = get_pad_mask(inputs).to(DEVICE)
                 inputs = inputs.to(DEVICE)
                 labels = labels.to(DEVICE)
                 doc_stopword_mask = doc_stopword_mask.to(DEVICE)
-                topic_stopword_mask = topic_stopword_mask.to(DEVICE)
                 all_labels.append(labels)
                 outputs = model.forward(
                     pad_mask,
                     doc_stopword_mask,
-                    topic_stopword_mask,
                     inputs=inputs,
                     use_dropout=False,
                     token_type_ids=token_type_ids[:len(inputs)]
@@ -262,11 +255,10 @@ if __name__ == "__main__":
     token_type_ids = [token_type_ids for _ in range(batch_size)]
     token_type_ids = torch.tensor(token_type_ids, dtype=torch.long, device=DEVICE)
 
-    first_input, first_label, first_doc_stopword_mask, first_topic_stopword_mask, _ = train_set[0]
+    first_input, first_label, first_doc_stopword_mask, _ = train_set[0]
     print(train_set.tokenizer.convert_ids_to_tokens(first_input))
     print(first_label)
     print(first_doc_stopword_mask)
-    print(first_topic_stopword_mask)
 
     print("Loading model...")
     if model_type == 'bert-joint':

@@ -19,7 +19,7 @@ class VastClassifier(nn.Module, ABC):
         self.bert_model = self.bert_model.to(*args, **kwargs)
         return super().to(*args, **kwargs)
 
-    def extract_co_embeddings(self, pad_mask, doc_stopword_mask, topic_stopword_mask, inputs=None, inputs_embeds=None,
+    def extract_co_embeddings(self, pad_mask, doc_stopword_mask, inputs=None, inputs_embeds=None,
                               token_type_ids=None):
         # Inputs/inputs_embeds are organized as "[CLS] document [SEP] topic [SEP]"
         if inputs is None and inputs_embeds is None:
@@ -44,14 +44,13 @@ class VastClassifier(nn.Module, ABC):
             dim=-1
         )
         topic_token_counts = torch.sum(
-            pad_mask[:, self.doc_len + 2:-1] * topic_stopword_mask,
+            pad_mask[:, self.doc_len + 2:-1],
             dim=-1
         )
         last_hidden_state = torch.unsqueeze(pad_mask, dim=-1) * last_hidden_state
         doc_embeds = last_hidden_state[:, 1:self.doc_len + 1:]
         doc_embeds = torch.unsqueeze(doc_stopword_mask, dim=-1) * doc_embeds
         topic_embeds = last_hidden_state[:, self.doc_len + 2:-1]
-        topic_embeds = torch.unsqueeze(topic_stopword_mask, dim=-1) * topic_embeds
         doc = torch.sum(doc_embeds, dim=1) / doc_token_counts[:, None]  # same idea for document embeddings
         topic = torch.sum(topic_embeds, dim=1) / topic_token_counts[:, None]  # avg of non-zeroed topic tokens
         return doc, topic

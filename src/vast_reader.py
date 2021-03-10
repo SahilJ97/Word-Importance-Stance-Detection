@@ -152,14 +152,14 @@ class VastReader(Dataset):
                 doc_tokens = crop_or_pad(doc_tokens, self.doc_len)
                 doc_stopword_mask = get_stopword_mask(doc_tokens)
                 doc_tokens = CLS_ID + doc_tokens + SEP_ID
-                topic_tokens = self.tokenizer.tokenize(row["new_topic"])
+                topic_tokens = self.tokenizer.tokenize(row["topic_str"])
                 topic_tokens = crop_or_pad(topic_tokens, self.topic_len)
-                topic_stopword_mask = get_stopword_mask(topic_tokens)
+                #topic_stopword_mask = get_stopword_mask(topic_tokens)
                 topic_tokens = topic_tokens + SEP_ID
                 input_dict = {
                     "input_tokens": doc_tokens + topic_tokens,
                     "doc_stopword_mask": doc_stopword_mask,
-                    "topic_stopword_mask": topic_stopword_mask,
+                    #"topic_stopword_mask": topic_stopword_mask,
                     "weights": None,
                     "relevance_scores": None,
                 }
@@ -172,9 +172,10 @@ class VastReader(Dataset):
                 reader = DictReader(f)
                 for row in reader:
                     self.labels.append(int(row["label"]))
-                    topic_tokens = self.tokenizer.tokenize(row["topic"])
+                    #topic_tokens = self.tokenizer.tokenize(row["topic"])
+                    topic_tokens = self.tokenizer.tokenize(" ".join([t for t in row["topic"].split(" ") if t not in sw]))
                     topic_tokens = crop_or_pad(topic_tokens, self.topic_len)
-                    topic_stopword_mask = get_stopword_mask(topic_tokens)
+                    #topic_stopword_mask = get_stopword_mask(topic_tokens)
                     topic_tokens = topic_tokens + SEP_ID
                     orig_word_weight_tuples = eval(row["weights"])
                     argument = row["argument"]
@@ -201,7 +202,7 @@ class VastReader(Dataset):
                     input_dict = {
                         "input_tokens": doc_tokens + topic_tokens,
                         "doc_stopword_mask": doc_stopword_mask,
-                        "topic_stopword_mask": topic_stopword_mask,
+                        #"topic_stopword_mask": topic_stopword_mask,
                         "weights": weights,
                         "relevance_scores": relevance_scores,
                     }
@@ -223,8 +224,7 @@ class VastReader(Dataset):
             ip["input_tokens"]
         )
         attribution_info = (has_attribution_label, torch.tensor(weights), torch.tensor(relevance_scores))
-        return torch.tensor(input_seq), self.labels[idx], torch.tensor(ip["doc_stopword_mask"]), \
-            torch.tensor(ip["topic_stopword_mask"]), attribution_info
+        return torch.tensor(input_seq), self.labels[idx], torch.tensor(ip["doc_stopword_mask"]), attribution_info
 
     def __len__(self):
         return len(self.labels)
