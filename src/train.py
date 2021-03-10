@@ -267,10 +267,10 @@ if __name__ == "__main__":
     token_type_ids = torch.tensor(token_type_ids, dtype=torch.long, device=DEVICE)
 
     first_input, first_label, first_doc_stopword_mask, first_topic_stopword_mask, _ = train_set[0]
-    print(train_set.tokenizer.convert_ids_to_tokens(first_input))
+    """print(train_set.tokenizer.convert_ids_to_tokens(first_input))
     print(first_label)
     print(first_doc_stopword_mask)
-    print(first_topic_stopword_mask)
+    print(first_topic_stopword_mask)"""
 
     if use_prior:
         explainer = AttributionPriorExplainer(train_set, batch_size=batch_size, k=k)

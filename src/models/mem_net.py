@@ -19,10 +19,10 @@ class MemoryNetwork(VastClassifier, ABC):
         self.W1 = torch.zeros((768, 768),)
         self.W2 = torch.zeros((768, 768),)
         if self.knowledge_transfer_scheme == "parallel":
-            hl_size = 4*768
+            mem_output_size = 4*768
         else:
-            hl_size = 768
-        self.hidden_layer = torch.nn.Linear(hl_size, hidden_layer_size)
+            mem_output_size = 768
+        self.hidden_layer = torch.nn.Linear(mem_output_size, hidden_layer_size)
         self.output_layer = torch.nn.Linear(hidden_layer_size, self.num_labels)
 
     def to(self, *args, **kwargs):
@@ -35,16 +35,13 @@ class MemoryNetwork(VastClassifier, ABC):
 
     def knowledge_transfer(self, topic_embedding, doc_embedding):
         def shared_math(h_input):
-            alphas = self.W1 @ h_input
-            alphas = self.M @ alphas
-            alphas = torch.softmax(alphas, dim=-1)  # shape: (num_memory_slots)
-            o = torch.zeros(h_input.size(), device=alphas.device)
-            for mem_slot_n in range(len(alphas)):
-                attended = alphas[mem_slot_n] * self.M[mem_slot_n]
-                o += attended
-            return self.W2 @ h_input + o
+            alphas = torch.einsum('ij,bj->bi', self.W1, h_input)
+            alphas = torch.einsum('ij,bj->bi', self.M, alphas)
+            alphas = torch.softmax(alphas, dim=-1)  # shape: (batch_size, num_memory_slots)
+            o = torch.einsum('bi,ij->bj', alphas, self.M)  # shape: (batch_size, 768)
+            return torch.einsum('ij,bj->bi', self.W2, h_input) + o
 
-        if self.knowledge_transfer_scheme == "projection":
+        """if self.knowledge_transfer_scheme == "projection":
             h = topic_embedding
             for hop in range(self.num_hops):
                 h = shared_math(h)
@@ -52,15 +49,15 @@ class MemoryNetwork(VastClassifier, ABC):
                     torch.dot(h, doc_embedding),
                     torch.square(torch.norm(h))
                 ) * h  # project document embedding onto h. DEFINITELY REVISE THIS SCHEME!!!
-            return h
+            return h"""
 
-        elif self.knowledge_transfer_scheme == "parallel":
+        if self.knowledge_transfer_scheme == "parallel":
             results = [topic_embedding, doc_embedding]
             for h in topic_embedding, doc_embedding:
                 for hop in range(self.num_hops):
                     h = shared_math(h)
                 results.append(h)
-            return torch.cat(results)
+            return torch.cat(results, dim=-1)
 
     def forward(self, pad_mask, doc_stopword_mask, topic_stopword_mask, inputs=None, inputs_embeds=None,
                 token_type_ids=None, **kwargs):
@@ -74,10 +71,7 @@ class MemoryNetwork(VastClassifier, ABC):
         )
 
         # Knowledge transfer component
-        H = []
-        for doc_emb, topic_emb in zip(doc_embeddings, topic_embeddings):  # could probably speed this up by doing it all at once. try again
-            H.append(self.knowledge_transfer(topic_emb, doc_emb))
-        H = torch.stack(H)
+        H = self.knowledge_transfer(doc_embeddings, topic_embeddings)
 
         # Synthesizing component
         hl = torch.nn.functional.relu(
