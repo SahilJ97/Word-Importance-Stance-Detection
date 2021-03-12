@@ -6,7 +6,7 @@ do
     do
       for lambda in .5 1 2 4 8
       do
-        echo ...
+        echo Command: python3 train.py -r "$relevance_scores" -u y -b 32 -l 1e-5 -k "$k" --lambda "$lambda" -o model -m bert-joint -s "$seed" --gpu 1
         python3 train.py -r "$relevance_scores" -u y -b 32 -l 1e-5 -k "$k" --lambda "$lambda" -o model -m bert-joint -s "$seed" --gpu 1
       done
     done
