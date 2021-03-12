@@ -16,8 +16,10 @@ class MemoryNetwork(VastClassifier, ABC):
         self.num_hops = num_hops
         self.knowledge_transfer_scheme = knowledge_transfer_scheme
         self.M = torch.load(init_topic_knowledge_file,)
-        self.W1 = torch.rand((768, 768), dtype=torch.float)
-        self.W2 = torch.rand((768, 768), dtype=torch.float)
+        self.W1 = torch.empty((768, 768), dtype=torch.float)
+        torch.nn.init.kaiming_uniform_(self.W1, mode='fan_in', nonlinearity='relu')
+        self.W2 = torch.empty((768, 768), dtype=torch.float)
+        torch.nn.init.kaiming_uniform_(self.W2, mode='fan_in', nonlinearity='relu')
         if self.knowledge_transfer_scheme == "parallel":
             mem_output_size = 4*768
         else:
